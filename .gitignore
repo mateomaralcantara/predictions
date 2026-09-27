@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Runtime lottery data (mutable; not source code)
+data/**/superkino_historico.csv
+data/**/*.csv.bak
+**/backups/
+**/debug/
+*.log
+*_audit.jsonl
+*_quarantine.csv
+*_state.json
+
+# Node / web (future apps/web)
+node_modules/
+.next/
+dist/
+.vercel/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
