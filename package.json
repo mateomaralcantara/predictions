@@ -4,6 +4,9 @@
   "private": true,
   "description": "Monorepo para resultados, analitica y predicciones de loterias dominicanas.",
   "scripts": {
+    "dev": "npm run web:dev",
+    "build": "npm run web:build",
+    "start": "npm --workspace apps/web run start",
     "repo:status": "powershell -ExecutionPolicy Bypass -File ./scripts/monorepo.ps1 status",
     "repo:doctor": "powershell -ExecutionPolicy Bypass -File ./scripts/monorepo.ps1 doctor",
     "superkino:update": "powershell -ExecutionPolicy Bypass -File ./scripts/monorepo.ps1 superkino-update",
