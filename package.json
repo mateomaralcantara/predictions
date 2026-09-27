@@ -8,9 +8,15 @@
     "repo:doctor": "powershell -ExecutionPolicy Bypass -File ./scripts/monorepo.ps1 doctor",
     "superkino:update": "powershell -ExecutionPolicy Bypass -File ./scripts/monorepo.ps1 superkino-update",
     "superkino:predict": "powershell -ExecutionPolicy Bypass -File ./scripts/monorepo.ps1 superkino-predict",
-    "superkino:all": "powershell -ExecutionPolicy Bypass -File ./scripts/monorepo.ps1 superkino-all"
+    "superkino:all": "powershell -ExecutionPolicy Bypass -File ./scripts/monorepo.ps1 superkino-all",
+    "web:install": "npm --workspace apps/web install",
+    "web:build": "npm --workspace apps/web run build",
+    "web:dev": "npm --workspace apps/web run dev"
   },
   "engines": {
     "node": ">=20"
-  }
+  },
+  "workspaces": [
+    "apps/web"
+  ]
 }
