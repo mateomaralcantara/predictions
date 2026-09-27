@@ -3,7 +3,12 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+env/
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 
 # Environment / secrets
 .env
@@ -20,13 +25,24 @@ data/**/*.csv.bak
 *_quarantine.csv
 *_state.json
 
-# Node / web (future apps/web)
+# Node / web
 node_modules/
 .next/
 dist/
+build/
+coverage/
 .vercel/
+.vite/
+*.tsbuildinfo
+
+# Migration / local backups
+_migration_backup_*/
+**/_migration_backup_*/
+*.bak
+*.tmp
 
 # OS / editors
 .DS_Store
 Thumbs.db
 .vscode/
+.idea/
