@@ -13,7 +13,8 @@ export default function Chat() {
 
   // ✅ Función conectar usando useCallback (para que no de errores)
   const conectar = useCallback(() => {
-    const ws = new WebSocket("ws://localhost:8000/ws");
+    const wsUrl = import.meta.env.VITE_WS_URL || "ws://127.0.0.1:8000/ws";
+    const ws = new WebSocket(wsUrl);
     socketRef.current = ws;
 
     ws.onopen = () => {
