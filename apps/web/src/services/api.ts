@@ -2,7 +2,7 @@
 
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8000'; // Ajusta si tu backend cambia de puerto
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
 // 🚀 Instancia de Axios para reusar configuración
 const api = axios.create({
