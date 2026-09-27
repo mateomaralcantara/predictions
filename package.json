@@ -1,0 +1,16 @@
+{
+  "name": "predictions-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Monorepo para resultados, analitica y predicciones de loterias dominicanas.",
+  "scripts": {
+    "repo:status": "powershell -ExecutionPolicy Bypass -File ./scripts/monorepo.ps1 status",
+    "repo:doctor": "powershell -ExecutionPolicy Bypass -File ./scripts/monorepo.ps1 doctor",
+    "superkino:update": "powershell -ExecutionPolicy Bypass -File ./scripts/monorepo.ps1 superkino-update",
+    "superkino:predict": "powershell -ExecutionPolicy Bypass -File ./scripts/monorepo.ps1 superkino-predict",
+    "superkino:all": "powershell -ExecutionPolicy Bypass -File ./scripts/monorepo.ps1 superkino-all"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
