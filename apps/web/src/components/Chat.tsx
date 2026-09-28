@@ -26,8 +26,9 @@ export default function Chat() {
       return;
     }
 
+    const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl =
-      import.meta.env.VITE_WS_URL || "ws://127.0.0.1:8000/ws";
+      import.meta.env.VITE_WS_URL || `${wsProtocol}//${window.location.host}/ws`;
 
     const ws = new WebSocket(wsUrl);
     socketRef.current = ws;
