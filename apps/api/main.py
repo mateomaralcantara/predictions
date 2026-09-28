@@ -11,6 +11,8 @@ import re
 import os
 from dotenv import load_dotenv
 import subprocess
+import csv
+from pathlib import Path
 
 # ✅ Cargar variables de entorno
 load_dotenv()
@@ -38,6 +40,46 @@ engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
+CSV_RESULTADOS = Path(__file__).resolve().parent / "loterias" / "resultados_tradicionales_2010_a_hoy.csv"
+
+def cargar_resultados_csv():
+    resultados = []
+    if not CSV_RESULTADOS.exists():
+        return resultados
+
+    with CSV_RESULTADOS.open("r", encoding="utf-8-sig", newline="") as fh:
+        reader = csv.DictReader(fh)
+        for row in reader:
+            try:
+                resultados.append({
+                    "fecha": row["fecha"],
+                    "loteria": row["loteria"],
+                    "primer": int(row["primer"]),
+                    "segundo": int(row["segundo"]),
+                    "tercero": int(row["tercero"]),
+                })
+            except (KeyError, TypeError, ValueError):
+                continue
+    return resultados
+
+def top_numeros_csv(cantidad=10, year=None, loteria=None):
+    numeros = []
+    for r in cargar_resultados_csv():
+        if year and not str(r["fecha"]).startswith(str(year)):
+            continue
+        if loteria and loteria.lower() not in str(r["loteria"]).lower():
+            continue
+        numeros.extend([r["primer"], r["segundo"], r["tercero"]])
+
+    return Counter(numeros).most_common(cantidad)
+
+def ultimos_resultados_csv(cantidad=3, loteria=None):
+    rows = cargar_resultados_csv()
+    if loteria:
+        rows = [r for r in rows if loteria.lower() in str(r["loteria"]).lower()]
+    rows.sort(key=lambda r: r["fecha"], reverse=True)
+    return rows[:cantidad]
+
 # ✅ Modelo
 class ResultadoTradicional(Base):
     __tablename__ = "resultados_tradicionales"
@@ -63,50 +105,66 @@ client = OpenAI(
 
 # ✅ Funciones de análisis de datos
 def buscar_top_numeros_por_año(year: str, db: Session, cantidad: int):
-    fecha_inicio = f"{year}-01-01"
-    fecha_fin = f"{year}-12-31"
-    resultados = db.query(ResultadoTradicional).filter(ResultadoTradicional.fecha.between(fecha_inicio, fecha_fin)).all()
+    try:
+        fecha_inicio = f"{year}-01-01"
+        fecha_fin = f"{year}-12-31"
+        resultados = db.query(ResultadoTradicional).filter(ResultadoTradicional.fecha.between(fecha_inicio, fecha_fin)).all()
 
-    numeros = []
-    for r in resultados:
-        numeros.extend([r.primer, r.segundo, r.tercero])
+        numeros = []
+        for r in resultados:
+            numeros.extend([r.primer, r.segundo, r.tercero])
+        top = Counter(numeros).most_common(cantidad)
+    except Exception:
+        db.rollback()
+        top = top_numeros_csv(cantidad=cantidad, year=year)
 
-    conteo = Counter(numeros)
-    top = conteo.most_common(cantidad)
-
-    resumen = "\n".join([f"Número {num}: {cant} veces" for num, cant in top])
-    return resumen
+    return "\n".join([f"Número {num}: {cant} veces" for num, cant in top])
 
 def buscar_ultimos_resultados(db: Session, cantidad: int = 3, loteria: str = None):
-    query = db.query(ResultadoTradicional)
-    if loteria:
-        query = query.filter(ResultadoTradicional.loteria.ilike(f"%{loteria}%"))
-    resultados = query.order_by(ResultadoTradicional.fecha.desc()).limit(cantidad).all()
-
-    resumen = "\n".join([f"{r.fecha} - {r.loteria}: {r.primer}, {r.segundo}, {r.tercero}" for r in resultados])
-    return resumen
+    try:
+        query = db.query(ResultadoTradicional)
+        if loteria:
+            query = query.filter(ResultadoTradicional.loteria.ilike(f"%{loteria}%"))
+        resultados = query.order_by(ResultadoTradicional.fecha.desc()).limit(cantidad).all()
+        return "\n".join([f"{r.fecha} - {r.loteria}: {r.primer}, {r.segundo}, {r.tercero}" for r in resultados])
+    except Exception:
+        db.rollback()
+        resultados = ultimos_resultados_csv(cantidad=cantidad, loteria=loteria)
+        return "\n".join([
+            f'{r["fecha"]} - {r["loteria"]}: {r["primer"]}, {r["segundo"]}, {r["tercero"]}'
+            for r in resultados
+        ])
 
 def numero_mas_salido_historicamente(db: Session):
-    resultados = db.query(ResultadoTradicional).all()
-    numeros = []
-    for r in resultados:
-        numeros.extend([r.primer, r.segundo, r.tercero])
+    try:
+        resultados = db.query(ResultadoTradicional).all()
+        numeros = []
+        for r in resultados:
+            numeros.extend([r.primer, r.segundo, r.tercero])
+        top = Counter(numeros).most_common(1)
+    except Exception:
+        db.rollback()
+        top = top_numeros_csv(cantidad=1)
 
-    conteo = Counter(numeros)
-    if not conteo:
+    if not top:
         return "⚠️ No hay datos históricos."
 
-    numero, veces = conteo.most_common(1)[0]
+    numero, veces = top[0]
     return f"🔢 El número más salido históricamente es {numero} con {veces} apariciones."
 
 def buscar_combinaciones_frecuentes(db: Session, cantidad: int = 5):
-    resultados = db.query(ResultadoTradicional).all()
-    combinaciones = [(r.primer, r.segundo, r.tercero) for r in resultados]
-    conteo = Counter(combinaciones)
-    top = conteo.most_common(cantidad)
+    try:
+        resultados = db.query(ResultadoTradicional).all()
+        combinaciones = [(r.primer, r.segundo, r.tercero) for r in resultados]
+    except Exception:
+        db.rollback()
+        combinaciones = [
+            (r["primer"], r["segundo"], r["tercero"])
+            for r in cargar_resultados_csv()
+        ]
 
-    resumen = "\n".join([f"Combinación {comb} - {veces} veces" for comb, veces in top])
-    return resumen
+    top = Counter(combinaciones).most_common(cantidad)
+    return "\n".join([f"Combinación {comb} - {veces} veces" for comb, veces in top])
 
 def generar_respuesta_con_openai(contexto: str, pregunta_usuario: str):
     try:
@@ -184,21 +242,26 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @app.get("/api/numeros-mas-salidores")
 def numeros_mas_salidores(db: Session = Depends(get_db)):
-    query = """
-        SELECT numero, COUNT(*) as apariciones
-        FROM (
-            SELECT primer as numero FROM resultados_tradicionales WHERE loteria ILIKE '%nacional%'
-            UNION ALL
-            SELECT segundo as numero FROM resultados_tradicionales WHERE loteria ILIKE '%nacional%'
-            UNION ALL
-            SELECT tercero as numero FROM resultados_tradicionales WHERE loteria ILIKE '%nacional%'
-        ) AS numeros
-        GROUP BY numero
-        ORDER BY apariciones DESC
-        LIMIT 10;
-    """
-    result = db.execute(text(query)).fetchall()
-    return [{"numero": row[0], "apariciones": row[1]} for row in result]
+    try:
+        query = """
+            SELECT numero, COUNT(*) as apariciones
+            FROM (
+                SELECT primer as numero FROM resultados_tradicionales WHERE loteria ILIKE '%nacional%'
+                UNION ALL
+                SELECT segundo as numero FROM resultados_tradicionales WHERE loteria ILIKE '%nacional%'
+                UNION ALL
+                SELECT tercero as numero FROM resultados_tradicionales WHERE loteria ILIKE '%nacional%'
+            ) AS numeros
+            GROUP BY numero
+            ORDER BY apariciones DESC
+            LIMIT 10;
+        """
+        result = db.execute(text(query)).fetchall()
+        return [{"numero": row[0], "apariciones": row[1]} for row in result]
+    except Exception:
+        db.rollback()
+        top = top_numeros_csv(cantidad=10, loteria="Lotería Nacional")
+        return [{"numero": numero, "apariciones": apariciones} for numero, apariciones in top]
 
 @app.get("/api/fechas-numero")
 def fechas_de_numero(numero: int = Query(...), db: Session = Depends(get_db)):
