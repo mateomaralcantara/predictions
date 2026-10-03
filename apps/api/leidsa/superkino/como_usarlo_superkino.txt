@@ -1,14 +1,17 @@
-# Reparar el CSV y dejarlo limpio
-python superkino_sync_v2.py --csv superkino_historico_limpio.csv --repair-csv --backup-csv
+# SuperKinoTV - regla actual 1..84
 
-# Sincronizar todos los faltantes desde la última fecha hasta hoy
-python superkino_sync_v2.py --csv superkino_historico_limpio.csv --append-latest --skip-early-today --backup-csv
+# Opción recomendada desde la raíz del monorepo
+npm run superkino:update
+npm run superkino:predict
 
-# Rellenar huecos viejos o intermedios desde 2020-01-01 hasta hoy
-python superkino_sync_v2.py --csv superkino_historico_limpio.csv --sync-missing --start 2020-01-01 --skip-early-today --backup-csv
+# O todo junto
+npm run superkino:all
 
-# Vigilar la página y actualizar si Leidsa cambia números o publica el resultado nuevo
-python superkino_sync_v2.py --csv superkino_historico_limpio.csv --watch-latest --poll-seconds 90 --backup-csv
+# Mantener vigilancia del resultado más reciente
+npm run superkino:watch
 
-# Generar 8 jugadas usando el CSV limpio
-python superkino_predictor_v4.py --csv superkino_historico_limpio.csv --panels 8 --pick-size 10
+# Uso directo desde esta carpeta legacy
+python superkino_sync.py --csv superkino_historico.csv --repair-csv --backup-csv
+python superkino_sync.py --csv superkino_historico.csv --sync-missing --start 2020-01-01 --backup-csv
+python superkino_sync.py --csv superkino_historico.csv --watch-latest --poll-seconds 90 --backup-csv
+python superkino_predictor.py --csv superkino_historico.csv --panels 8 --pick-size 10
