@@ -14,7 +14,8 @@
     "superkino:all": "powershell -ExecutionPolicy Bypass -File ./scripts/monorepo.ps1 superkino-all",
     "web:install": "npm --workspace apps/web install",
     "web:build": "npm --workspace apps/web run build",
-    "web:dev": "npm --workspace apps/web run dev"
+    "web:dev": "npm --workspace apps/web run dev",
+    "superkino:watch": "powershell -ExecutionPolicy Bypass -File ./scripts/monorepo.ps1 superkino-watch"
   },
   "engines": {
     "node": ">=20"
