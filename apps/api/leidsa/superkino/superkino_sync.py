@@ -36,12 +36,14 @@ HEADERS = {
 }
 
 BASE_URLS = (
+    ("LB", "https://labanca.do/loterias/leidsa/super-kino-tv/{:%Y-%m-%d}/"),
     ("C", "https://loteriasdominicanas.com/pagina/ultimos-resultados?date={:%Y-%m-%d}"),
     ("A", "https://loteriasdominicanas.com/leidsa/super-kino-tv?date={:%Y-%m-%d}"),
     ("B", "https://loteriasdominicanas.com/leidsa/super-kino-tv?date={:%d-%m-%Y}"),
 )
 
 LATEST_URLS = (
+    ("LBL", "https://labanca.do/loterias/leidsa/super-kino-tv/"),
     ("L1", "https://loteriasdominicanas.com/leidsa/super-kino-tv"),
     ("L2", "https://loteriasdominicanas.com/leidsa"),
     ("L3", "https://loteriasdominicanas.com/pagina/ultimos-resultados"),
@@ -54,6 +56,12 @@ DATE_RE = re.compile(
 )
 RUN20_RE = re.compile(r"(?:\b\d{1,2}\b\s+){19}\b\d{1,2}\b")
 SUPERKINO_LABEL_RE = re.compile(r"super\s*kino\s*tv|kino\s*tv|kinotv|super\s*kino", re.I)
+
+SPANISH_MONTHS = {
+    1: "enero", 2: "febrero", 3: "marzo", 4: "abril",
+    5: "mayo", 6: "junio", 7: "julio", 8: "agosto",
+    9: "septiembre", 10: "octubre", 11: "noviembre", 12: "diciembre",
+}
 
 
 def load_rd_tz():
@@ -347,6 +355,7 @@ def date_tokens(d: date) -> List[str]:
         d.strftime("%d/%m"),
         f"{d.day}-{d.month:02d}",
         f"{d.day}/{d.month:02d}",
+        f"{d.day} de {SPANISH_MONTHS[d.month]} de {d.year}",
     ]
     return list(dict.fromkeys(tokens))
 
@@ -404,6 +413,39 @@ def ints_in(node) -> List[int]:
         if t.isdigit():
             nums.append(int(t))
     return nums
+
+
+def extract_20_from_result_sentence(soup: BeautifulSoup, target: Optional[date] = None) -> Optional[List[int]]:
+    """Extrae la frase estable: '... del <fecha> fue 01-02-...-20'."""
+    text = soup.get_text(" ", strip=True)
+    if target is not None:
+        date_phrase = re.escape(f"{target.day} de {SPANISH_MONTHS[target.month]} de {target.year}")
+        pattern = rf"(?:super\s*kino\s*tv|súper\s*kino\s*tv).{{0,180}}?{date_phrase}.{{0,120}}?fue\s+((?:\d{{1,2}}[-\s]+){{19}}\d{{1,2}})"
+    else:
+        pattern = r"(?:super\s*kino\s*tv|súper\s*kino\s*tv).{0,260}?fue\s+((?:\d{1,2}[-\s]+){19}\d{1,2})"
+
+    m = re.search(pattern, text, flags=re.I | re.S)
+    if not m:
+        return None
+    nums = [int(x) for x in re.findall(r"\d{1,2}", m.group(1))]
+    nums = dedupe_keep_order(nums, DRAW_SIZE)
+    return nums if validar_superkino(nums) else None
+
+
+def extract_spanish_page_date(soup: BeautifulSoup) -> Optional[date]:
+    text = normalize_text(soup.get_text(" ", strip=True))
+    month_lookup = {name: num for num, name in SPANISH_MONTHS.items()}
+    m = re.search(
+        r"\b(\d{1,2})\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+de\s+(20\d{2})\b",
+        text,
+        flags=re.I,
+    )
+    if not m:
+        return None
+    try:
+        return date(int(m.group(3)), month_lookup[m.group(2).lower()], int(m.group(1)))
+    except Exception:
+        return None
 
 
 def extract_20_by_labeled_section(soup: BeautifulSoup, target: Optional[date] = None) -> Optional[List[int]]:
@@ -511,6 +553,7 @@ def scrape_superkino_for_date(
     debug_dir: Optional[Path] = None,
 ) -> Optional[Tuple[date, List[int], str]]:
     extractors: Sequence[Callable[[BeautifulSoup], Optional[List[int]]]] = (
+        lambda soup: extract_20_from_result_sentence(soup, target=d),
         lambda soup: extract_20_by_labeled_section(soup, target=d),
         lambda soup: extract_20_by_text_run(soup, target=d),
         extract_20_from_gameblocks,
@@ -524,7 +567,7 @@ def scrape_superkino_for_date(
             continue
         soup = make_soup(html)
         if validate_page_date and not page_mentions_target_date(soup, d):
-            visible_date = extract_page_date(soup)
+            visible_date = extract_page_date(soup) or extract_spanish_page_date(soup)
             reason = f"date-mismatch-{visible_date.isoformat()}" if visible_date else "date-mismatch"
             dump_debug_html(debug_dir, d, tag, reason, html)
             continue
@@ -539,6 +582,16 @@ def scrape_superkino_for_date(
     return None
 
 
+def extract_latest_stable_entry(soup: BeautifulSoup) -> Optional[Tuple[date, List[int]]]:
+    d = extract_spanish_page_date(soup) or extract_page_date(soup)
+    if d is None:
+        return None
+    nums = extract_20_from_result_sentence(soup, target=d)
+    if nums and validar_superkino(nums):
+        return d, nums
+    return None
+
+
 def scrape_latest_superkino(
     session: requests.Session,
     cfg: FetchConfig,
@@ -549,7 +602,7 @@ def scrape_latest_superkino(
         if not html:
             continue
         soup = make_soup(html)
-        entry = extract_latest_superkino_entry(soup)
+        entry = extract_latest_stable_entry(soup) or extract_latest_superkino_entry(soup)
         if entry:
             d, nums = entry
             if validar_superkino(nums):
