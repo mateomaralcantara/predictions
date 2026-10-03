@@ -21,6 +21,10 @@ DEFAULT_CSV = "superkino_historico.csv"
 DEFAULT_FULL_SYNC_START = date(2010, 1, 1)
 DEFAULT_STATE_FILE = "superkino_watch_state.json"
 
+MIN_NUMBER = 1
+MAX_NUMBER = 84
+DRAW_SIZE = 20
+
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -147,42 +151,79 @@ def parse_date_cell(raw: str) -> Optional[date]:
     return None
 
 
+def _date_from_match(m: re.Match) -> Optional[date]:
+    try:
+        if m.group(1) and m.group(2) and m.group(3):
+            return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        if m.group(4) and m.group(5) and m.group(6):
+            yy = int(m.group(6))
+            year = yy if yy >= 100 else 2000 + yy
+            return date(year, int(m.group(5)), int(m.group(4)))
+    except Exception:
+        return None
+    return None
+
+
+def _logical_rows_from_cells(row: Sequence[str]) -> List[Tuple[date, List[int]]]:
+    """Recupera una o varias filas lógicas incluso si dos sorteos quedaron concatenados."""
+    out: List[Tuple[date, List[int]]] = []
+    current_date: Optional[date] = None
+    current_nums: List[int] = []
+
+    def flush() -> None:
+        nonlocal current_date, current_nums
+        if current_date is not None:
+            nums = dedupe_keep_order(current_nums, DRAW_SIZE)
+            if validar_superkino(nums):
+                out.append((current_date, nums))
+        current_nums = []
+
+    for raw in row:
+        cell = (raw or "").strip()
+        if not cell:
+            continue
+
+        exact_date = parse_date_cell(cell)
+        match = None if exact_date is not None else DATE_RE.search(cell)
+        embedded_date = _date_from_match(match) if match else None
+        found_date = exact_date or embedded_date
+
+        if found_date is not None:
+            if match and match.start() > 0 and current_date is not None:
+                before = cell[:match.start()].strip(" ,;|")
+                if before.isdigit():
+                    current_nums.append(int(before))
+
+            flush()
+            current_date = found_date
+
+            if match and match.end() < len(cell):
+                after = cell[match.end():].strip(" ,;|")
+                if after.isdigit():
+                    current_nums.append(int(after))
+            continue
+
+        if current_date is not None and cell.isdigit():
+            current_nums.append(int(cell))
+
+    flush()
+    return out
+
+
 def parse_csv_rows_loose(csv_path: Path) -> List[Tuple[date, List[int]]]:
     if not csv_path.exists() or csv_path.stat().st_size == 0:
         return []
+
     rows: List[Tuple[date, List[int]]] = []
     with csv_path.open("r", encoding="utf-8", newline="") as f:
-        r = csv.reader(f)
-        for i, row in enumerate(r, start=1):
+        reader = csv.reader(f)
+        for i, row in enumerate(reader, start=1):
             if not row:
                 continue
-            if i == 1:
-                # Ignora header raro o mixto
+            if i == 1 and row[0].strip().lower() in {"fecha", "date"}:
                 continue
-            d = parse_date_cell(row[0]) if row else None
-            if d is None:
-                m = DATE_RE.search(" ".join(row))
-                if m:
-                    try:
-                        if m.group(1) and m.group(2) and m.group(3):
-                            d = date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
-                        elif m.group(4) and m.group(5) and m.group(6):
-                            yy = int(m.group(6))
-                            year = yy if yy >= 100 else 2000 + yy
-                            d = date(year, int(m.group(5)), int(m.group(4)))
-                    except Exception:
-                        d = None
-            if d is None:
-                continue
+            rows.extend(_logical_rows_from_cells(row))
 
-            nums: List[int] = []
-            for cell in row[1:]:
-                cell = (cell or "").strip()
-                if cell.isdigit():
-                    nums.append(int(cell))
-            nums = dedupe_keep_order(nums, 20)
-            if validar_superkino(nums):
-                rows.append((d, nums))
     return rows
 
 
@@ -336,10 +377,14 @@ def page_mentions_target_date(soup: BeautifulSoup, d: date) -> bool:
 
 
 def validar_superkino(nums: List[int]) -> bool:
-    return len(nums) == 20 and len(set(nums)) == 20 and all(1 <= n <= 80 for n in nums)
+    return (
+        len(nums) == DRAW_SIZE
+        and len(set(nums)) == DRAW_SIZE
+        and all(MIN_NUMBER <= n <= MAX_NUMBER for n in nums)
+    )
 
 
-def dedupe_keep_order(nums: List[int], target: int = 20) -> List[int]:
+def dedupe_keep_order(nums: List[int], target: int = DRAW_SIZE) -> List[int]:
     seen: Set[int] = set()
     out: List[int] = []
     for n in nums:
