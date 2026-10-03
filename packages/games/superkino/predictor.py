@@ -1,6 +1,6 @@
 
 # superkino_predictor_v4.py
-# Predictor heurístico Super Kino.
+# Predictor heurístico Super Kino (regla actual 1..84).
 # Ajustes v4:
 # - Carga CSV robusta aunque el archivo venga malformado.
 # - Soporta encabezados fecha,num_1..num_20 y también archivos viejos con n1..n20.
@@ -24,6 +24,13 @@ from typing import Dict, List, Tuple, Optional
 
 import numpy as np
 import pandas as pd
+
+MIN_NUMBER = 1
+LEGACY_MAX_NUMBER = 80
+MAX_NUMBER = 84
+DRAW_SIZE = 20
+BUCKET_SIZE = 10
+N_BUCKETS = (MAX_NUMBER + BUCKET_SIZE - 1) // BUCKET_SIZE
 
 
 def _parse_date(raw: str):
@@ -60,7 +67,7 @@ def _load_loose_rows(csv_path: str) -> pd.DataFrame:
             seen = set()
             clean = []
             for n in nums:
-                if 1 <= n <= 80 and n not in seen:
+                if MIN_NUMBER <= n <= MAX_NUMBER and n not in seen:
                     clean.append(n)
                     seen.add(n)
                 if len(clean) == 20:
@@ -86,12 +93,24 @@ def cargar_historico(csv_path: str) -> List[List[int]]:
     for comb in df[cols].astype(int).values.tolist():
         if len(comb) != 20:
             continue
-        if any(x < 1 or x > 80 for x in comb):
+        if any(x < 1 or x > MAX_NUMBER for x in comb):
             continue
         if len(set(comb)) != 20:
             continue
         vals.append(comb)
     return vals
+
+
+def historial_regla_actual(historico: List[List[int]]) -> List[List[int]]:
+    """Usa la era 1..84 cuando ya existen sorteos con 81..84.
+
+    Antes del cambio reglamentario, 81..84 eran imposibles. Mezclar toda la
+    historia sin distinguir eras penalizaría artificialmente esos números.
+    """
+    for i, comb in enumerate(historico):
+        if any(n > LEGACY_MAX_NUMBER for n in comb):
+            return historico[i:]
+    return historico
 
 
 def pesos_recencia(n: int, half_life: int) -> np.ndarray:
@@ -124,7 +143,7 @@ def frecuencias_ponderadas(historico: List[List[int]], half_life: int, calc_pair
     return Counter(fnum), Counter(fpairs)
 
 
-def distrib_buckets(historico: List[List[int]], nbuckets: int = 8) -> np.ndarray:
+def distrib_buckets(historico: List[List[int]], nbuckets: int = N_BUCKETS) -> np.ndarray:
     if not historico:
         return np.array([20.0 / nbuckets] * nbuckets, dtype=np.float64)
     H = np.asarray(historico, dtype=np.int16)
@@ -172,16 +191,16 @@ def cumple_reglas_fast(comb_sorted: np.ndarray, target_even: int, parity_tol: in
         return False
     if target_bucket_counts is not None:
         b = (comb_sorted - 1) // 10
-        counts = np.bincount(b, minlength=8).astype(np.int16)
+        counts = np.bincount(b, minlength=len(target_bucket_counts)).astype(np.int16)[:len(target_bucket_counts)]
         if np.any(np.abs(counts - target_bucket_counts) > bucket_tol):
             return False
     return True
 
 
 def build_pair_matrix(pair_w: Counter) -> np.ndarray:
-    M = np.zeros((81, 81), dtype=np.float32)
+    M = np.zeros((MAX_NUMBER + 1, MAX_NUMBER + 1), dtype=np.float32)
     for (a, b), v in pair_w.items():
-        if 1 <= a <= 80 and 1 <= b <= 80 and a != b:
+        if MIN_NUMBER <= a <= MAX_NUMBER and MIN_NUMBER <= b <= MAX_NUMBER and a != b:
             if a < b:
                 M[a, b] = float(v)
             else:
@@ -210,7 +229,7 @@ def score_numbers(sorted_idx: np.ndarray, W: np.ndarray, alpha: float) -> float:
 def score_spread(sorted_nums: np.ndarray, alpha: float) -> float:
     if alpha == 0.0:
         return 0.0
-    sp = float(sorted_nums[-1] - sorted_nums[0]) / 79.0
+    sp = float(sorted_nums[-1] - sorted_nums[0]) / float(MAX_NUMBER - MIN_NUMBER)
     return alpha * sp
 
 
@@ -272,15 +291,17 @@ def generar_panels(historico: List[List[int]], panels: int = 8, k: int = 10, see
                    n_cands: int = 5000, alpha_pairs: float = 1.0, alpha_num: float = 0.35,
                    alpha_spread: float = 0.15, min_spread: Optional[int] = None):
     rng = np.random.default_rng(seed)
-    fnum, _ = frecuencias_ponderadas(historico, half_life, calc_pairs=False) if historico else (Counter(), Counter())
-    W = np.array([float(fnum.get(i, 0.0)) for i in range(1, 81)], dtype=np.float64)
-    W = np.ones(80, dtype=np.float64) / 80.0 if W.sum() <= 0 else W / W.sum()
+    historico_modelo = historial_regla_actual(historico)
+    fnum, _ = frecuencias_ponderadas(historico_modelo, half_life, calc_pairs=False) if historico_modelo else (Counter(), Counter())
+    W = np.array([float(fnum.get(i, 0.0)) for i in range(MIN_NUMBER, MAX_NUMBER + 1)], dtype=np.float64)
+    W = np.ones(MAX_NUMBER, dtype=np.float64) / float(MAX_NUMBER) if W.sum() <= 0 else W / W.sum()
     Winv = invert_weights(W)
-    H_recent = historico[-recent_window:] if historico else []
+    H_recent = historico_modelo[-recent_window:] if historico_modelo else []
     _, pair_w = frecuencias_ponderadas(H_recent, max(1, half_life // 2), calc_pairs=True) if H_recent else (Counter(), Counter())
     pair_mat = build_pair_matrix(pair_w)
 
-    means = distrib_buckets(historico, nbuckets=8)
+    bucket_history = H_recent if H_recent else historico_modelo
+    means = distrib_buckets(bucket_history, nbuckets=N_BUCKETS)
     target_bucket_counts = np.floor(means * (k / 20.0)).astype(np.int16)
     while int(target_bucket_counts.sum()) < k:
         resid = (means * (k / 20.0)) - target_bucket_counts.astype(np.float64)
@@ -288,12 +309,12 @@ def generar_panels(historico: List[List[int]], panels: int = 8, k: int = 10, see
     while int(target_bucket_counts.sum()) > k:
         target_bucket_counts[int(np.argmax(target_bucket_counts))] -= 1
 
-    mp, _ = distrib_paridad(historico)
+    mp, _ = distrib_paridad(historico_modelo)
     target_even = int(round(mp * (k / 20.0)))
     if min_spread is None:
         min_spread = int(round(2.5 * k + 10))
 
-    all_idx = np.arange(80, dtype=np.int16)
+    all_idx = np.arange(MAX_NUMBER, dtype=np.int16)
 
     def samp_hot_idx(): return es_sample_idx(W, k, rng)
     def samp_cold_idx(): return es_sample_idx(Winv, k, rng)
@@ -304,7 +325,7 @@ def generar_panels(historico: List[List[int]], panels: int = 8, k: int = 10, see
         hot = es_sample_idx(W, hot_k, rng)
         if cold_k <= 0:
             return hot
-        mask = np.ones(80, dtype=bool)
+        mask = np.ones(MAX_NUMBER, dtype=bool)
         mask[hot] = False
         rem = all_idx[mask]
         if rem.size == 0:
@@ -322,13 +343,14 @@ def generar_panels(historico: List[List[int]], panels: int = 8, k: int = 10, see
         return out[:k]
 
     def samp_bucket_idx():
-        selected = np.zeros(80, dtype=bool)
+        selected = np.zeros(MAX_NUMBER, dtype=bool)
         picks: List[int] = []
-        for b in range(8):
+        for b in range(N_BUCKETS):
             t = int(target_bucket_counts[b])
             if t <= 0:
                 continue
-            lo, hi = b * 10, b * 10 + 10
+            lo = b * BUCKET_SIZE
+            hi = min(lo + BUCKET_SIZE, MAX_NUMBER)
             pool = np.arange(lo, hi, dtype=np.int16)
             pool = pool[~selected[pool]]
             if pool.size == 0:
