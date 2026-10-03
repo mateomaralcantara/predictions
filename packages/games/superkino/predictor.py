@@ -288,7 +288,7 @@ def diversificar_sets(pred_sets: List[set], nueva: List[int], max_overlap: int) 
 
 def generar_panels(historico: List[List[int]], panels: int = 8, k: int = 10, seed: Optional[int] = None,
                    half_life: int = 120, recent_window: int = 300, max_consec: int = 2, max_overlap: int = 7,
-                   n_cands: int = 5000, alpha_pairs: float = 1.0, alpha_num: float = 0.35,
+                   n_cands: int = 1200, alpha_pairs: float = 1.0, alpha_num: float = 0.35,
                    alpha_spread: float = 0.15, min_spread: Optional[int] = None):
     rng = np.random.default_rng(seed)
     historico_modelo = historial_regla_actual(historico)
@@ -422,7 +422,7 @@ def main() -> None:
     ap.add_argument("--recent-window", type=int, default=300, help="Ventana reciente para pares.")
     ap.add_argument("--max-consec", type=int, default=2, help="Consecutivos máximos.")
     ap.add_argument("--max-overlap", type=int, default=7, help="Solapamiento máximo.")
-    ap.add_argument("--n-cands", type=int, default=5000, help="Candidatos por panel.")
+    ap.add_argument("--n-cands", type=int, default=1200, help="Candidatos por panel.")
     ap.add_argument("--export", type=str, default=None, help="Exportar CSV.")
     args = ap.parse_args()
 
