@@ -12,10 +12,14 @@
     "superkino:update": "powershell -ExecutionPolicy Bypass -File ./scripts/monorepo.ps1 superkino-update",
     "superkino:predict": "powershell -ExecutionPolicy Bypass -File ./scripts/monorepo.ps1 superkino-predict",
     "superkino:all": "powershell -ExecutionPolicy Bypass -File ./scripts/monorepo.ps1 superkino-all",
+    "superkino:watch": "powershell -ExecutionPolicy Bypass -File ./scripts/monorepo.ps1 superkino-watch",
+    "loto:update": "powershell -ExecutionPolicy Bypass -File ./scripts/monorepo.ps1 loto-update",
+    "loto:predict": "powershell -ExecutionPolicy Bypass -File ./scripts/monorepo.ps1 loto-predict",
+    "loto:all": "powershell -ExecutionPolicy Bypass -File ./scripts/monorepo.ps1 loto-all",
+    "loto:watch": "powershell -ExecutionPolicy Bypass -File ./scripts/monorepo.ps1 loto-watch",
     "web:install": "npm --workspace apps/web install",
     "web:build": "npm --workspace apps/web run build",
-    "web:dev": "npm --workspace apps/web run dev",
-    "superkino:watch": "powershell -ExecutionPolicy Bypass -File ./scripts/monorepo.ps1 superkino-watch"
+    "web:dev": "npm --workspace apps/web run dev"
   },
   "engines": {
     "node": ">=20"
