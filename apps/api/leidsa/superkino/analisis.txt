@@ -1,0 +1,11 @@
+
+
+https://colab.research.google.com/drive/1K0iSRM0J5dY3S6GMEVfF3reOZI5R_5eL
+
+https://chatgpt.com/c/69b333a0-7814-832c-b47b-18d9659a06c7
+
+
+python .\superkino_sync.py --csv .\superkino_historico.csv --append-latest --skip-early-today --backup-csv
+
+
+

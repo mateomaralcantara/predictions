@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "name": "predictions",
+  "type": "mixed-language-monorepo",
+  "apps": {
+    "web": {
+      "path": "apps/web",
+      "runtime": "node",
+      "status": "migration-pending"
+    },
+    "api": {
+      "path": "apps/api",
+      "runtime": "python-or-node",
+      "status": "migration-pending"
+    },
+    "collector": {
+      "path": "apps/collector",
+      "runtime": "python",
+      "status": "active"
+    },
+    "worker": {
+      "path": "apps/worker",
+      "runtime": "python",
+      "status": "active"
+    }
+  },
+  "packages": {
+    "core": {
+      "path": "packages/core",
+      "status": "scaffolded"
+    },
+    "sources": {
+      "path": "packages/sources",
+      "status": "scaffolded"
+    },
+    "analytics": {
+      "path": "packages/analytics",
+      "status": "scaffolded"
+    },
+    "superkino": {
+      "path": "packages/games/superkino",
+      "status": "active"
+    }
+  },
+  "data": {
+    "superkino": "data/superkino"
+  },
+  "shared": [
+    "config",
+    "docs",
+    "infra",
+    "scripts",
+    "tests"
+  ]
+}

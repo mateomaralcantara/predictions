@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Runtime lottery data (mutable; not source code)
+data/**/superkino_historico.csv
+data/**/*.csv.bak
+**/backups/
+**/debug/
+*.log
+*_audit.jsonl
+*_quarantine.csv
+*_state.json
+
+# Node / web
+node_modules/
+.next/
+dist/
+build/
+coverage/
+.vercel/
+.vite/
+*.tsbuildinfo
+
+# Migration / local backups
+_migration_backup_*/
+**/_migration_backup_*/
+*.bak
+*.tmp
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

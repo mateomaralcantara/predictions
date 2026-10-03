@@ -1,0 +1,17 @@
+# SuperKinoTV - regla actual 1..84
+
+# Opción recomendada desde la raíz del monorepo
+npm run superkino:update
+npm run superkino:predict
+
+# O todo junto
+npm run superkino:all
+
+# Mantener vigilancia del resultado más reciente
+npm run superkino:watch
+
+# Uso directo desde esta carpeta legacy
+python superkino_sync.py --csv superkino_historico.csv --repair-csv --backup-csv
+python superkino_sync.py --csv superkino_historico.csv --sync-missing --start 2020-01-01 --backup-csv
+python superkino_sync.py --csv superkino_historico.csv --watch-latest --poll-seconds 90 --backup-csv
+python superkino_predictor.py --csv superkino_historico.csv --panels 8 --pick-size 10

@@ -1,0 +1,25 @@
+https://chatgpt.com/c/686568cb-8594-800b-9e27-ca3fee3b147a
+
+ Predicción 1: 🔥 Súper calientes
+[6, 7, 10, 16, 19, 29]
+
+Predicción 2: 🧊 Súper fríos (los menos jugados)
+[4, 8, 9, 17, 23, 31]
+
+Predicción 3: 🥶 Mezcla fríos/calientes
+[4, 7, 16, 19, 29, 31]
+
+Predicción 4: 👫 Pares/tríos famosos
+[2, 3, 19, 29, 33, 38]
+
+Predicción 5: 🧬 Balanceada altos/bajos
+[2, 7, 16, 28, 33, 36]
+
+Predicción 6: 🧠 Tendencia reciente
+[6, 10, 16, 24, 28, 36]
+
+Predicción 7: 🎲 Top 30 random
+[3, 6, 16, 20, 29, 38]
+
+Predicción 8: 👽 Outlier/bizarro (fríos + calientes random)
+[4, 8, 10, 19, 24, 38]
