@@ -1,0 +1,17 @@
+from pathlib import Path
+
+# Crear requirements.txt dentro de la carpeta backend nuevamente después del reset
+requirements_path = Path("backend/requirements.txt")
+requirements_content = """requests
+beautifulsoup4
+pandas
+fastapi
+uvicorn
+sqlalchemy
+psycopg2-binary
+python-dotenv
+"""
+
+requirements_path.parent.mkdir(parents=True, exist_ok=True)
+requirements_path.write_text(requirements_content)
+requirements_path
