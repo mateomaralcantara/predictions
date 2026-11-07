@@ -48,6 +48,7 @@ def create_app() -> FastAPI:
             "version": __version__,
             "fuente_datos": repo.source,
             "sorteos": len(rows),
+            "sorteos_descartados": repo.descartados,
             "ultimo_sorteo": rows[-1].fecha.isoformat() if rows else None,
             "openai": settings.openai_enabled,
             "pagos": settings.paypal_enabled,

@@ -1,17 +1,29 @@
-import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
-import './index.css';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import App from './App';
-import MembershipPlans from './components/MembershipPlans';
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+import Layout from "./components/Layout";
+import "./index.css";
+import Explorar from "./pages/Explorar";
+import Inicio from "./pages/Inicio";
+import { NoEncontrado, PagoCancelado, PagoExito } from "./pages/Pago";
+import Planes from "./pages/Planes";
+import Predicciones from "./pages/Predicciones";
 
-createRoot(document.getElementById('root')!).render(
+createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <Router>
+    <BrowserRouter>
       <Routes>
-        <Route path="/" element={<App />} />
-        <Route path="/membresias" element={<MembershipPlans />} />
+        <Route element={<Layout />}>
+          <Route index element={<Inicio />} />
+          <Route path="explorar" element={<Explorar />} />
+          <Route path="predicciones" element={<Predicciones />} />
+          <Route path="planes" element={<Planes />} />
+          <Route path="membresias" element={<Planes />} />
+          <Route path="pago/exito" element={<PagoExito />} />
+          <Route path="pago/cancelado" element={<PagoCancelado />} />
+          <Route path="*" element={<NoEncontrado />} />
+        </Route>
       </Routes>
-    </Router>
-  </StrictMode>
+    </BrowserRouter>
+  </StrictMode>,
 );

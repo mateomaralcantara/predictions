@@ -4,10 +4,10 @@ import pytest
 
 from app import chat
 from app.config import get_settings
-from app.repository import load_csv
+from app.repository import descartar_repeticiones, load_csv
 from conftest import FIXTURES
 
-ROWS = load_csv(FIXTURES / "resultados.csv")
+ROWS, _ = descartar_repeticiones(load_csv(FIXTURES / "resultados.csv"))
 
 
 @pytest.mark.parametrize(

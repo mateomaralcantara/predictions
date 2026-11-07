@@ -5,6 +5,7 @@ def test_health(client):
     assert body["estado"] == "ok"
     assert body["fuente_datos"] == "csv"
     assert body["sorteos"] == 8
+    assert body["sorteos_descartados"] == 1
     assert body["openai"] is False and body["pagos"] is False
 
 

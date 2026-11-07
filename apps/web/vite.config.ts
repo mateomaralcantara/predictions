@@ -1,23 +1,24 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import react from "@vitejs/plugin-react";
+import { defineConfig, loadEnv } from "vite";
 
-export default defineConfig({
-  plugins: [react()],
-  server: {
-    host: '0.0.0.0',
-    port: 5174,
-    strictPort: true,
-    proxy: {
-      '/backend': {
-        target: 'http://127.0.0.1:8000',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/backend/, ''),
-      },
-      '/ws': {
-        target: 'http://127.0.0.1:8000',
-        ws: true,
-        changeOrigin: true,
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), "");
+  const target = env.API_PROXY_TARGET || "http://127.0.0.1:8000";
+  return {
+    plugins: [react()],
+    server: {
+      host: "0.0.0.0",
+      port: 5174,
+      strictPort: true,
+      proxy: {
+        "/backend": { target, changeOrigin: true, rewrite: (p) => p.replace(/^\/backend/, "") },
+        "/ws": { target, ws: true, changeOrigin: true },
       },
     },
-  },
-})
+    build: {
+      rollupOptions: {
+        output: { manualChunks: { charts: ["recharts"], vendor: ["react", "react-dom", "react-router-dom"] } },
+      },
+    },
+  };
+});

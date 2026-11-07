@@ -48,3 +48,6 @@ _migration_backup_*/
 Thumbs.db
 .vscode/
 .idea/
+
+# Web build output
+apps/web/dist/

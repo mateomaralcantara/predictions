@@ -75,6 +75,21 @@ def load_db(url: str) -> list[Resultado]:
         ]
 
 
+def descartar_repeticiones(rows: list[Resultado]) -> tuple[list[Resultado], int]:
+    """Elimina sorteos que repiten exactamente el resultado anterior de la misma
+    lotería. Es prácticamente imposible en un sorteo real (~1 en 10^6) y es la
+    huella típica de un scraper que guardó la página "último resultado" varios
+    días seguidos (p. ej. ene–sep 2011 en el CSV histórico)."""
+    previo: dict[str, tuple[int, int, int]] = {}
+    limpios: list[Resultado] = []
+    for r in sorted(rows, key=lambda x: (x.loteria, x.fecha)):
+        if previo.get(r.loteria) == r.numeros:
+            continue
+        previo[r.loteria] = r.numeros
+        limpios.append(r)
+    return limpios, len(rows) - len(limpios)
+
+
 class ResultsRepository:
     def __init__(self, csv_path: Path, database_url: str | None = None, ttl_seconds: float = 300):
         self.csv_path = csv_path
@@ -82,6 +97,7 @@ class ResultsRepository:
         self.ttl_seconds = ttl_seconds
         self._rows: list[Resultado] = []
         self._source = "none"
+        self._descartados = 0
         self._loaded_at = 0.0
         self._lock = threading.Lock()
 
@@ -89,6 +105,11 @@ class ResultsRepository:
     def source(self) -> str:
         self.all()
         return self._source
+
+    @property
+    def descartados(self) -> int:
+        self.all()
+        return self._descartados
 
     def all(self) -> list[Resultado]:
         now = time.monotonic()
@@ -98,8 +119,12 @@ class ResultsRepository:
             if self._loaded_at and time.monotonic() - self._loaded_at < self.ttl_seconds:
                 return self._rows
             rows, source = self._load()
+            rows, descartados = descartar_repeticiones(rows)
+            if descartados:
+                log.warning("Descartados %d sorteos repetidos (datos de scraping obsoletos).", descartados)
             rows.sort(key=lambda r: (r.fecha, r.loteria))
-            self._rows, self._source, self._loaded_at = rows, source, time.monotonic()
+            self._rows, self._source, self._descartados = rows, source, descartados
+            self._loaded_at = time.monotonic()
             return rows
 
     def invalidate(self) -> None:
