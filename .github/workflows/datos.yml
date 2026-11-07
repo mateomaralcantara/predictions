@@ -21,6 +21,9 @@ jobs:
   actualizar:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      # Los secretos no se pueden usar en `if:`; se exponen como variable del job.
+      HAY_DB: ${{ secrets.DATABASE_URL != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -60,7 +63,7 @@ jobs:
           git push
 
       - name: Importar a PostgreSQL de producción
-        if: env.DATABASE_URL != ''
+        if: env.HAY_DB == 'true'
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
