@@ -22,6 +22,8 @@ class Plan:
     moneda: str
     descripcion: str
     beneficios: tuple[str, ...]
+    nivel: int
+    dias: int = 30
     destacado: bool = False
 
     def as_dict(self) -> dict:
@@ -29,6 +31,21 @@ class Plan:
         d["beneficios"] = list(self.beneficios)
         return d
 
+
+@dataclass(frozen=True)
+class Limites:
+    jugadas: int  # jugadas por juego y consulta
+    historial: int  # apariciones visibles en el historial de un número
+    chat_por_minuto: int
+
+
+# nivel 0 = gratis (o sin cuenta)
+LIMITES: dict[int, Limites] = {
+    0: Limites(jugadas=2, historial=10, chat_por_minuto=10),
+    1: Limites(jugadas=5, historial=50, chat_por_minuto=20),
+    2: Limites(jugadas=10, historial=500, chat_por_minuto=40),
+    3: Limites(jugadas=10, historial=500, chat_por_minuto=60),
+}
 
 PLANES: dict[str, Plan] = {
     p.id: p
@@ -38,8 +55,13 @@ PLANES: dict[str, Plan] = {
             "Explorador",
             "9.99",
             "USD",
-            "Para empezar a seguir tus loterías favoritas.",
-            ("Estadísticas de todas las loterías", "Predicciones heurísticas de Loto y SuperKino", "Asistente de chat"),
+            "Para seguir tus loterías favoritas.",
+            (
+                "5 jugadas por juego (Loto y SuperKino)",
+                "Historial de 50 apariciones por número",
+                "Asistente: 20 preguntas/min",
+            ),
+            nivel=1,
         ),
         Plan(
             "platinum",
@@ -47,12 +69,8 @@ PLANES: dict[str, Plan] = {
             "29.99",
             "USD",
             "Para jugadores que analizan a fondo.",
-            (
-                "Todo lo de Explorador",
-                "Historial completo por número",
-                "Números atrasados y combinaciones",
-                "Gráficos avanzados",
-            ),
+            ("10 jugadas por juego", "Historial completo por número", "Asistente: 40 preguntas/min"),
+            nivel=2,
             destacado=True,
         ),
         Plan(
@@ -60,11 +78,20 @@ PLANES: dict[str, Plan] = {
             "Oráculo",
             "59.99",
             "USD",
-            "Acceso total y soporte prioritario.",
-            ("Todo lo de Platinum", "Soporte prioritario", "Acceso anticipado a nuevas loterías"),
+            "Todo incluido y soporte prioritario.",
+            ("Todo lo de Platinum", "Soporte prioritario por correo", "Asistente: 60 preguntas/min"),
+            nivel=3,
         ),
     )
 }
+
+PLAN_GRATIS = {
+    "id": "gratis",
+    "nombre": "Gratis",
+    "nivel": 0,
+    "beneficios": ["2 jugadas por juego", "Historial de 10 apariciones por número", "Asistente: 10 preguntas/min"],
+}
+
 
 ORDER_ID_RE = re.compile(r"^[A-Z0-9]{5,40}$")
 

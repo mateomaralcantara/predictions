@@ -51,3 +51,7 @@ Thumbs.db
 
 # Web build output
 apps/web/dist/
+
+# Base de datos local de la app (SQLite)
+data/*.db
+data/*.db-journal

@@ -6,7 +6,8 @@ from fastapi import APIRouter, Depends, Query
 from fastapi import Path as PathParam
 
 from .. import stats
-from ..deps import get_repository
+from ..cuentas import limites_de
+from ..deps import Nivel, get_repository
 from ..repository import ResultsRepository
 
 router = APIRouter(prefix="/api", tags=["estadísticas"])
@@ -51,10 +52,13 @@ def atrasados(repo: Repo, loteria: Loteria = None, limite: Limite = 10) -> list[
 def numero(
     repo: Repo,
     numero: Annotated[int, PathParam(ge=0, le=99)],
+    nivel: Nivel,
     loteria: Loteria = None,
-    limite: Limite = 50,
+    limite: Annotated[int, Query(ge=1, le=500)] = 50,
 ) -> dict:
-    return stats.apariciones_numero(stats.filtrar(repo.all(), loteria=loteria), numero, limite)
+    maximo = limites_de(nivel).historial
+    info = stats.apariciones_numero(stats.filtrar(repo.all(), loteria=loteria), numero, min(limite, maximo))
+    return {**info, "max_historial": maximo, "limitado": limite > maximo and info["total"] > maximo}
 
 
 # --- Compatibilidad con el frontend anterior ---------------------------------

@@ -14,9 +14,16 @@ def test_planes_publicos(client):
     assert [p["id"] for p in body["planes"]] == list(PLANES)
 
 
+def test_ordenes_requieren_sesion(client):
+    assert client.post("/api/pagos/ordenes", json={"plan": "platinum"}).status_code == 401
+    assert client.post("/api/pagos/ordenes/ABC12345/captura").status_code == 401
+
+
 def test_sin_credenciales_responde_503(client):
-    assert client.post("/api/pagos/ordenes", json={"plan": "platinum"}).status_code == 503
-    assert client.post("/api/pagos/ordenes/ABC12345/captura").status_code == 503
+    from conftest import auth_header, registrar
+
+    h = auth_header(registrar(client)["token"])
+    assert client.post("/api/pagos/ordenes", json={"plan": "platinum"}, headers=h).status_code == 503
 
 
 def _paypal(env, handler):

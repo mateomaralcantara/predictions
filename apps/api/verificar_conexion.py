@@ -4,13 +4,7 @@ from psycopg2 import OperationalError
 
 def verificar_conexion(user, password, dbname, host="localhost", port="5432"):
     try:
-        conn = psycopg2.connect(
-            dbname=dbname,
-            user=user,
-            password=password,
-            host=host,
-            port=port
-        )
+        conn = psycopg2.connect(dbname=dbname, user=user, password=password, host=host, port=port)
         conn.close()
         return "✅ Conexión exitosa: la contraseña es CORRECTA."
     except OperationalError as e:
@@ -18,6 +12,7 @@ def verificar_conexion(user, password, dbname, host="localhost", port="5432"):
             return "❌ Contraseña INCORRECTA para el usuario."
         else:
             return f"⚠️ Otro error ocurrió: {e}"
+
 
 # 👉 Modifica aquí tus datos
 usuario = "postgres"

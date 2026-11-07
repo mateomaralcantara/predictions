@@ -5,7 +5,9 @@ Ningún secreto vive en el código: todo sale de ``os.environ``.
 
 from __future__ import annotations
 
+import logging
 import os
+import secrets
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
@@ -55,8 +57,23 @@ def _database_url() -> str | None:
     return f"postgresql://{auth}@{host}:{port}/{name}"
 
 
+log = logging.getLogger(__name__)
+
+
+def _bool(name: str, default: bool) -> bool:
+    raw = _env(name)
+    if raw is None:
+        return default
+    return raw.lower() in {"1", "true", "yes", "si", "sí", "on"}
+
+
 @dataclass(frozen=True)
 class Settings:
+    environment: str
+    secret_key: str
+    app_database_url: str
+    auto_migrate: bool
+    trust_proxy_headers: bool
     database_url: str | None
     openai_api_key: str | None
     openai_model: str
@@ -69,6 +86,10 @@ class Settings:
     loto_csv: Path
     superkino_csv: Path
     cors_origins: list[str] = field(default_factory=list)
+
+    @property
+    def is_production(self) -> bool:
+        return self.environment == "production"
 
     @property
     def openai_enabled(self) -> bool:
@@ -92,8 +113,30 @@ def get_settings() -> Settings:
     raw_origins = _env("CORS_ORIGINS")
     origins = [o.strip() for o in raw_origins.split(",") if o.strip()] if raw_origins else default_origins
 
+    environment = (_env("ENVIRONMENT", "development") or "development").lower()
+    secret_key = _env("SECRET_KEY")
+    if not secret_key:
+        if environment == "production":
+            raise RuntimeError("SECRET_KEY es obligatoria en producción.")
+        secret_key = secrets.token_urlsafe(48)
+        log.warning("SECRET_KEY no definida: se usa una clave temporal (las sesiones se pierden al reiniciar).")
+    elif environment == "production" and len(secret_key) < 32:
+        raise RuntimeError("SECRET_KEY debe tener al menos 32 caracteres en producción.")
+
+    database_url = _database_url()
+    app_db = _env("APP_DATABASE_URL") or database_url
+    if not app_db:
+        db_file = REPO_ROOT / "data" / "app.db"
+        db_file.parent.mkdir(parents=True, exist_ok=True)
+        app_db = f"sqlite:///{db_file}"
+
     return Settings(
-        database_url=_database_url(),
+        environment=environment,
+        secret_key=secret_key,
+        app_database_url=app_db,
+        auto_migrate=_bool("AUTO_MIGRATE", True),
+        trust_proxy_headers=_bool("TRUST_PROXY_HEADERS", False),
+        database_url=database_url,
         openai_api_key=_env("OPENAI_API_KEY"),
         openai_model=_env("OPENAI_MODEL", "gpt-4o-mini"),
         paypal_client_id=_env("PAYPAL_CLIENT_ID"),

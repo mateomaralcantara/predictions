@@ -6,7 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from .. import predictions
 from ..config import Settings
-from ..deps import settings_dep
+from ..cuentas import limites_de
+from ..deps import Nivel, settings_dep
 
 router = APIRouter(prefix="/api/predicciones", tags=["predicciones"])
 
@@ -20,11 +21,16 @@ def juegos() -> list[dict]:
 def predecir(
     juego: Literal["loto", "superkino"],
     settings: Annotated[Settings, Depends(settings_dep)],
+    nivel: Nivel,
     jugadas: Annotated[int, Query(ge=1, le=10)] = 5,
 ) -> dict:
+    maximo = limites_de(nivel).jugadas
+    permitidas = min(jugadas, maximo)
     try:
         if juego == "loto":
-            return predictions.predecir_loto(settings.loto_csv, jugadas)
-        return predictions.predecir_superkino(settings.superkino_csv, jugadas)
+            data = predictions.predecir_loto(settings.loto_csv, permitidas)
+        else:
+            data = predictions.predecir_superkino(settings.superkino_csv, permitidas)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {**data, "solicitadas": jugadas, "max_jugadas": maximo, "limitado": jugadas > maximo, "nivel": nivel}

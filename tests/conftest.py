@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import os
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -14,7 +15,14 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
 sys.path[:0] = [str(ROOT), str(ROOT / "apps" / "api")]
 
+_TMP = Path(tempfile.mkdtemp(prefix="predictions-tests-"))
+
 TEST_ENV = {
+    "ENVIRONMENT": "test",
+    "SECRET_KEY": "clave-de-pruebas-suficientemente-larga-1234567890",
+    "APP_DATABASE_URL": f"sqlite:///{_TMP / 'app.db'}",
+    "AUTO_MIGRATE": "true",
+    "TRUST_PROXY_HEADERS": "",
     "DATABASE_URL": "",
     "DB_HOST": "",
     "OPENAI_API_KEY": "",
@@ -32,10 +40,40 @@ os.environ.update(TEST_ENV)
 def _reset_caches() -> None:
     from app import deps, predictions
     from app.config import get_settings
+    from app.ratelimit import limiter
 
     get_settings.cache_clear()
     deps.get_repository.cache_clear()
     predictions.clear_cache()
+    limiter.reset()
+
+
+@pytest.fixture(autouse=True)
+def _db_limpia():
+    """Cada test empieza con la base de la app vacía (pero migrada)."""
+    from app.config import get_settings
+    from app.db import Base, session_factory
+    from app.migrate import upgrade
+
+    _reset_caches()
+    url = get_settings().app_database_url
+    upgrade(url)
+    with session_factory(url)() as db:
+        for tabla in reversed(Base.metadata.sorted_tables):
+            if tabla.name != "resultados_tradicionales":
+                db.execute(tabla.delete())
+        db.commit()
+    yield
+
+
+def registrar(client, email: str = "ana@example.com", password: str = "clave-segura-1", nombre: str = "Ana") -> dict:
+    r = client.post("/api/auth/registro", json={"email": email, "password": password, "nombre": nombre})
+    assert r.status_code == 201, r.text
+    return r.json()
+
+
+def auth_header(token: str) -> dict:
+    return {"Authorization": f"Bearer {token}"}
 
 
 @pytest.fixture

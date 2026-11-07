@@ -53,16 +53,16 @@ def test_predicciones(client):
     juegos = {j["id"] for j in client.get("/api/predicciones").json()}
     assert juegos == {"loto", "superkino"}
 
-    loto = client.get("/api/predicciones/loto", params={"jugadas": 3}).json()
-    assert len(loto["jugadas"]) == 3
+    loto = client.get("/api/predicciones/loto", params={"jugadas": 2}).json()
+    assert len(loto["jugadas"]) == 2 and loto["limitado"] is False
     for j in loto["jugadas"]:
         assert len(set(j["numeros"])) == 6 and all(1 <= n <= 40 for n in j["numeros"])
         assert 1 <= j["mas"] <= 12 and 1 <= j["super_mas"] <= 15
     # Determinista mientras no cambie el último sorteo.
-    assert client.get("/api/predicciones/loto", params={"jugadas": 3}).json() == loto
+    assert client.get("/api/predicciones/loto", params={"jugadas": 2}).json() == loto
 
-    sk = client.get("/api/predicciones/superkino", params={"jugadas": 4}).json()
-    assert len(sk["jugadas"]) == 4
+    sk = client.get("/api/predicciones/superkino", params={"jugadas": 2}).json()
+    assert len(sk["jugadas"]) == 2
     for j in sk["jugadas"]:
         assert len(set(j["numeros"])) == 10 and all(1 <= n <= 84 for n in j["numeros"])
 
@@ -109,3 +109,29 @@ def test_cors(client):
         headers={"Origin": "https://malicioso.example", "Access-Control-Request-Method": "GET"},
     )
     assert "access-control-allow-origin" not in r.headers
+
+
+def test_cabeceras_de_seguridad(client):
+    r = client.get("/api/health")
+    assert r.headers["x-content-type-options"] == "nosniff"
+    assert r.headers["x-frame-options"] == "DENY"
+    assert (
+        client.post("/api/auth/login", json={"email": "a@b.co", "password": "x"}).headers["cache-control"] == "no-store"
+    )
+
+
+def test_produccion_exige_secret_key(monkeypatch):
+    import pytest
+
+    from app.config import get_settings
+
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    monkeypatch.setenv("SECRET_KEY", "corta")
+    get_settings.cache_clear()
+    with pytest.raises(RuntimeError):
+        get_settings()
+    monkeypatch.setenv("SECRET_KEY", "")
+    get_settings.cache_clear()
+    with pytest.raises(RuntimeError):
+        get_settings()
+    get_settings.cache_clear()
