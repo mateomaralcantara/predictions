@@ -16,7 +16,7 @@
     "collector": {
       "path": "apps/collector",
       "runtime": "python",
-      "status": "scaffolded"
+      "status": "active"
     },
     "worker": {
       "path": "apps/worker",
@@ -31,7 +31,7 @@
     },
     "sources": {
       "path": "packages/sources",
-      "status": "scaffolded"
+      "status": "active"
     },
     "analytics": {
       "path": "packages/analytics",
@@ -48,7 +48,8 @@
   },
   "data": {
     "superkino": "data/superkino",
-    "loto": "data/loto"
+    "loto": "data/loto",
+    "tradicionales": "data/tradicionales"
   },
   "shared": [
     "config",

@@ -3,7 +3,7 @@
 import sys
 from pathlib import Path
 
-__version__ = "1.0.0"
+__version__ = "2.0.0"
 
 # Permite importar ``packages.games.*`` (raíz del monorepo) al ejecutar
 # uvicorn desde apps/api.

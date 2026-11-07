@@ -1,20 +1,24 @@
 # Predictions RD
 
-Plataforma de resultados, estadísticas y jugadas heurísticas de loterías dominicanas.
-
-- **Web** (`apps/web`): React 19, Vite, Tailwind y Recharts. Responsive y accesible.
-- **API** (`apps/api`): FastAPI. Usa PostgreSQL si está disponible y, si no, el CSV histórico.
-- **Juegos** (`packages/games`): sincronizadores y predictores de Loto LEIDSA (6/40 + Más + Súper Más) y SuperKino (1–84).
+Plataforma de resultados, estadísticas y jugadas heurísticas de loterías dominicanas, con cuentas de usuario y planes de pago.
 
 [![CI](https://github.com/mateomaralcantara/predictions/actions/workflows/ci.yml/badge.svg)](https://github.com/mateomaralcantara/predictions/actions/workflows/ci.yml)
+[![Datos](https://github.com/mateomaralcantara/predictions/actions/workflows/datos.yml/badge.svg)](https://github.com/mateomaralcantara/predictions/actions/workflows/datos.yml)
 
-## Inicio rápido
+| Pieza | Tecnología | Qué hace |
+|---|---|---|
+| `apps/web` | React 19, Vite, Tailwind, Recharts | Estadísticas, explorador, predicciones, asistente, cuentas y pagos |
+| `apps/api` | FastAPI, SQLAlchemy, Alembic | API, autenticación JWT, suscripciones, PayPal, límites por plan |
+| `apps/collector` | Python | Recolector diario de loterías tradicionales con protección contra datos obsoletos |
+| `packages/games` | Python, NumPy | Sincronización y predictores de Loto LEIDSA y SuperKino |
+| `data/` | CSV versionados | Histórico; lo actualiza un bot cada día |
+
+## Inicio rápido (desarrollo)
 
 Requisitos: Python 3.11+ y Node 20+.
 
 ```bash
-npm install
-npm run api:install
+npm install && npm run api:install
 ```
 
 ```bash
@@ -25,38 +29,77 @@ npm run api:dev        # API en http://localhost:8000 (docs en /docs)
 npm run dev            # Web en http://localhost:5174
 ```
 
-Funciona sin configurar nada: sin base de datos usa el CSV, sin OpenAI el chat responde con reglas locales y sin PayPal los planes se muestran como «Próximamente». Para activar cada servicio, copia `apps/api/.env.example` a `apps/api/.env`.
+Funciona sin configurar nada: usa SQLite para las cuentas y los CSV para el histórico. Sin OpenAI, el chat responde con reglas locales; sin PayPal, los planes aparecen como «Próximamente». Para configurar algo, copia `apps/api/.env.example` a `apps/api/.env`.
+
+## Producción con Docker
+
+```bash
+cp .env.docker.example .env      # define POSTGRES_PASSWORD y SECRET_KEY
+```
+
+```bash
+docker compose up -d --build     # web en http://localhost:8080
+```
+
+```bash
+docker compose exec api python -m app.cli importar-csv        # histórico a PostgreSQL
+```
+
+```bash
+docker compose exec api python -m app.cli crear-admin tu@correo.com
+```
+
+Las migraciones se aplican solas al arrancar la API. La web (nginx) sirve el frontend y redirige `/backend` a la API, así que todo funciona en un único dominio.
+
+### Desplegar en la nube (Render, Railway, Fly…)
+
+1. **PostgreSQL** gestionado: copia su URL en `DATABASE_URL` (se aceptan `postgres://` y `postgresql://`).
+2. **API**: servicio Docker con `apps/api/Dockerfile` (contexto: raíz del repo). Variables: `ENVIRONMENT=production`, `SECRET_KEY`, `DATABASE_URL`, `FRONTEND_URL`, `CORS_ORIGINS` y, cuando los tengas, `PAYPAL_*` y `OPENAI_API_KEY`.
+3. **Web**: servicio Docker con `apps/web/Dockerfile` y `API_UPSTREAM=https://tu-api...`. Alternativa: sitio estático (Vercel, Netlify) con `VITE_API_URL=https://tu-api...`.
+4. En GitHub, añade los secretos `DATABASE_URL` y `SECRET_KEY` para que el bot de datos importe a PostgreSQL cada día.
+5. En PayPal, pasa de *sandbox* a *live* cambiando `PAYPAL_BASE_URL=https://api-m.paypal.com`.
+
+## Cuentas y planes
+
+| Plan | Precio (30 días) | Jugadas por juego | Historial por número | Asistente |
+|---|---|---|---|---|
+| Gratis | $0 | 2 | 10 | 10/min |
+| Explorador | $9.99 | 5 | 50 | 20/min |
+| Platinum | $29.99 | 10 | completo | 40/min |
+| Oráculo | $59.99 | 10 | completo | 60/min |
+
+- Es un pago único por 30 días, sin renovación automática. Si se renueva el mismo plan, los días se suman.
+- El servidor fija el precio. Al capturar el pago se verifica que la orden sea del usuario y que el estado, el monto, la moneda y el plan coincidan. Recargar la página de éxito no cobra dos veces.
+- Las contraseñas se guardan con scrypt, la sesión usa JWT (7 días) y hay límite de intentos en login y registro, y de peticiones en el chat.
+
+Administración:
+
+```bash
+cd apps/api && python -m app.cli --help   # migrar · importar-csv · crear-admin · dar-plan
+```
+
+## Datos
+
+El workflow **Actualizar datos** corre cada día a las 23:17 (hora de RD) y también se puede lanzar a mano desde *Actions*. En cada ejecución:
+
+- recoge los resultados tradicionales nuevos y rellena hasta 400 días de huecos (el hueco de agosto 2021 – diciembre 2024 se completa en unas 4 ejecuciones);
+- sincroniza Loto y SuperKino;
+- valida los datos con los tests y hace commit en `data/`;
+- si existe el secreto `DATABASE_URL`, importa los resultados a PostgreSQL.
+
+**Calidad de los datos.** El sitio de origen devuelve el *último* resultado cuando un día no tiene datos, y eso generó miles de registros falsos en el pasado. Ahora:
+
+1. el recolector descarta los bloques cuya fecha no coincide con la pedida y los días que repiten el último resultado guardado;
+2. la API descarta al cargar las repeticiones consecutivas idénticas (unos 1.600 registros heredados, visibles en `/api/health`).
 
 ## Calidad
 
 ```bash
-npm run check          # ruff + eslint + pytest + build
+npm run check     # ruff + eslint + pytest + vitest + build
 ```
 
-CI (GitHub Actions) ejecuta lint, formato, tests y build en cada push y PR.
-
-## Datos
-
-| Juego | Archivo operativo (no versionado) | Copia de respaldo en el repo |
-|---|---|---|
-| Tradicionales | `data/tradicionales/resultados_tradicionales.csv` | `apps/api/loterias/resultados_tradicionales_2010_a_hoy.csv` |
-| Loto | `data/loto/loto_historico.csv` | `apps/api/leidsa/lotto/loto_leidsa.csv` |
-| SuperKino | `data/superkino/superkino_historico.csv` | `apps/api/leidsa/superkino/superkino_historico.csv` |
-
-La API usa el archivo operativo si existe y, si no, la copia de respaldo. También se pueden fijar las rutas con `RESULTADOS_CSV`, `LOTO_CSV` y `SUPERKINO_CSV`.
-
-**Calidad del histórico.** Al cargar los datos, la API descarta los sorteos que repiten exactamente el resultado anterior de la misma lotería. Es la huella de un scraper que guardó la misma página varios días seguidos (por ejemplo, Nacional, Leidsa y Loteka entre enero y septiembre de 2011). En total se descartan unos 1.600 registros; el número aparece en `/api/health`. Además, el CSV tradicional **no tiene datos entre agosto de 2021 y diciembre de 2024**, y la web avisa de la fecha del último dato.
-
-## Operación (Windows / PowerShell)
-
-```powershell
-npm run superkino:update; npm run superkino:predict
-npm run loto:update;      npm run loto:predict
-npm run loto:watch
-```
-
-En Linux/macOS: `npm run loto:predict:py` / `npm run superkino:predict:py`.
+El CI ejecuta lint y formato, pytest (con SQLite y con PostgreSQL), vitest, el build de la web y el build de las dos imágenes Docker.
 
 ## Juego responsable
 
-Los predictores son heurísticos. El histórico sirve para elegir criterios de selección, pero **no aumenta la probabilidad matemática** de ninguna combinación en un sorteo justo. Es una herramienta informativa para mayores de 18 años.
+Los predictores son heurísticos. El histórico sirve para elegir criterios de selección, pero **no aumenta la probabilidad matemática** de ninguna combinación en un sorteo justo. Los planes dan acceso a más análisis, no a mejores probabilidades. Solo para mayores de 18 años.

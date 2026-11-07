@@ -87,8 +87,17 @@ class Suscripcion(Base):
     usuario: Mapped[Usuario] = relationship(back_populates="suscripciones")
 
 
+def normalizar_url(url: str) -> str:
+    """Fuerza el driver psycopg 3 y acepta el esquema ``postgres://`` de Render/Railway/Heroku."""
+    for prefijo in ("postgres://", "postgresql://", "postgresql+psycopg2://"):
+        if url.startswith(prefijo):
+            return "postgresql+psycopg://" + url[len(prefijo) :]
+    return url
+
+
 @lru_cache
 def get_engine(url: str) -> Engine:
+    url = normalizar_url(url)
     if url.startswith("sqlite"):
         engine = create_engine(url, connect_args={"check_same_thread": False})
 

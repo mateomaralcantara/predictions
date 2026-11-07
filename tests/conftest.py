@@ -20,7 +20,8 @@ _TMP = Path(tempfile.mkdtemp(prefix="predictions-tests-"))
 TEST_ENV = {
     "ENVIRONMENT": "test",
     "SECRET_KEY": "clave-de-pruebas-suficientemente-larga-1234567890",
-    "APP_DATABASE_URL": f"sqlite:///{_TMP / 'app.db'}",
+    # CI puede probar contra PostgreSQL real con TEST_APP_DATABASE_URL.
+    "APP_DATABASE_URL": os.environ.get("TEST_APP_DATABASE_URL") or f"sqlite:///{_TMP / 'app.db'}",
     "AUTO_MIGRATE": "true",
     "TRUST_PROXY_HEADERS": "",
     "DATABASE_URL": "",

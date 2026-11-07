@@ -1,9 +1,9 @@
 # Collector
 
-El collector coordinará los scrapers de todos los juegos. Durante la primera fase, SuperKino se ejecuta directamente desde:
+`tradicionales.py` mantiene `data/tradicionales/resultados_tradicionales.csv`.
 
-```powershell
-python .\packages\games\superkino\sync.py --csv .\data\superkino\superkino_historico.csv --append-latest --backup-csv
+```bash
+python apps/collector/tradicionales.py --help
 ```
 
-La siguiente fase extraerá la lógica común de red, validación y fuentes hacia paquetes compartidos.
+Lo ejecuta cada día `.github/workflows/datos.yml`. El parser vive en `packages/sources/loteriasdominicanas.py` y se prueba con HTML de ejemplo en `tests/fixtures/`.

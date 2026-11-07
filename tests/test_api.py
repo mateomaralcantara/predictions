@@ -135,3 +135,12 @@ def test_produccion_exige_secret_key(monkeypatch):
     with pytest.raises(RuntimeError):
         get_settings()
     get_settings.cache_clear()
+
+
+def test_normalizar_url_postgres():
+    from app.db import normalizar_url
+
+    assert normalizar_url("postgres://u:p@h/db") == "postgresql+psycopg://u:p@h/db"
+    assert normalizar_url("postgresql://u@h/db") == "postgresql+psycopg://u@h/db"
+    assert normalizar_url("postgresql+psycopg2://u@h/db") == "postgresql+psycopg://u@h/db"
+    assert normalizar_url("sqlite:///x.db") == "sqlite:///x.db"
