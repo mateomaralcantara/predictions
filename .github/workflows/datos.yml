@@ -41,6 +41,10 @@ jobs:
         continue-on-error: true
         run: python packages/games/loto/sync.py --csv data/loto/loto_historico.csv --append-latest
 
+      - name: Loto Pool
+        continue-on-error: true
+        run: python packages/games/lotopool/sync.py --desde "$(date -u -d '-3 days' +%F)"
+
       - name: SuperKino
         continue-on-error: true
         run: python packages/games/superkino/sync.py --csv data/superkino/superkino_historico.csv --append-latest
