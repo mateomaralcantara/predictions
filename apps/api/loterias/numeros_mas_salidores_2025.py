@@ -1,8 +1,9 @@
+import os
 from sqlalchemy import create_engine, text
 from datetime import datetime
 
 # Configuración de conexión
-DATABASE_URL = "postgresql://postgres:123456@localhost:5432/loterias_db"
+DATABASE_URL = os.environ["DATABASE_URL"]
 engine = create_engine(DATABASE_URL)
 
 # Fechas del rango

@@ -8,14 +8,13 @@ import json
 import re
 import sys
 import time
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 import requests
-from bs4 import BeautifulSoup
-from bs4 import FeatureNotFound
+from bs4 import BeautifulSoup, FeatureNotFound
 
 DEFAULT_CSV = "superkino_historico.csv"
 DEFAULT_FULL_SYNC_START = date(2010, 1, 1)
@@ -103,7 +102,7 @@ def weekday_code(d: date) -> str:
     return DOW_CODES[d.weekday()]
 
 
-def parse_dias(dias_str: str) -> Set[str]:
+def parse_dias(dias_str: str) -> set[str]:
     dias_str = dias_str.upper().replace(",", "").replace(" ", "")
     given = set(dias_str)
     valid = set(DOW_CODES)
@@ -147,7 +146,7 @@ def ensure_header(csv_path: Path) -> None:
         w.writerow(["fecha"] + [f"num_{i}" for i in range(1, 21)])
 
 
-def parse_date_cell(raw: str) -> Optional[date]:
+def parse_date_cell(raw: str) -> date | None:
     raw = (raw or "").strip()
     if not raw:
         return None
@@ -159,7 +158,7 @@ def parse_date_cell(raw: str) -> Optional[date]:
     return None
 
 
-def _date_from_match(m: re.Match) -> Optional[date]:
+def _date_from_match(m: re.Match) -> date | None:
     try:
         if m.group(1) and m.group(2) and m.group(3):
             return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
@@ -172,11 +171,11 @@ def _date_from_match(m: re.Match) -> Optional[date]:
     return None
 
 
-def _logical_rows_from_cells(row: Sequence[str]) -> List[Tuple[date, List[int]]]:
+def _logical_rows_from_cells(row: Sequence[str]) -> list[tuple[date, list[int]]]:
     """Recupera una o varias filas lógicas incluso si dos sorteos quedaron concatenados."""
-    out: List[Tuple[date, List[int]]] = []
-    current_date: Optional[date] = None
-    current_nums: List[int] = []
+    out: list[tuple[date, list[int]]] = []
+    current_date: date | None = None
+    current_nums: list[int] = []
 
     def flush() -> None:
         nonlocal current_date, current_nums
@@ -218,11 +217,11 @@ def _logical_rows_from_cells(row: Sequence[str]) -> List[Tuple[date, List[int]]]
     return out
 
 
-def parse_csv_rows_loose(csv_path: Path) -> List[Tuple[date, List[int]]]:
+def parse_csv_rows_loose(csv_path: Path) -> list[tuple[date, list[int]]]:
     if not csv_path.exists() or csv_path.stat().st_size == 0:
         return []
 
-    rows: List[Tuple[date, List[int]]] = []
+    rows: list[tuple[date, list[int]]] = []
     with csv_path.open("r", encoding="utf-8", newline="") as f:
         reader = csv.reader(f)
         for i, row in enumerate(reader, start=1):
@@ -235,7 +234,7 @@ def parse_csv_rows_loose(csv_path: Path) -> List[Tuple[date, List[int]]]:
     return rows
 
 
-def read_existing_dates(csv_path: Path) -> Tuple[Set[date], Optional[date], Optional[date]]:
+def read_existing_dates(csv_path: Path) -> tuple[set[date], date | None, date | None]:
     rows = parse_csv_rows_loose(csv_path)
     if not rows:
         return set(), None, None
@@ -243,14 +242,14 @@ def read_existing_dates(csv_path: Path) -> Tuple[Set[date], Optional[date], Opti
     return set(dates), dates[0], dates[-1]
 
 
-def load_csv_map(csv_path: Path) -> Dict[date, List[int]]:
-    mp: Dict[date, List[int]] = {}
+def load_csv_map(csv_path: Path) -> dict[date, list[int]]:
+    mp: dict[date, list[int]] = {}
     for d, nums in parse_csv_rows_loose(csv_path):
         mp[d] = nums
     return dict(sorted(mp.items(), key=lambda kv: kv[0]))
 
 
-def write_csv_map(csv_path: Path, rows_map: Dict[date, List[int]], backup: bool = False) -> int:
+def write_csv_map(csv_path: Path, rows_map: dict[date, list[int]], backup: bool = False) -> int:
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     if backup and csv_path.exists():
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -267,7 +266,7 @@ def write_csv_map(csv_path: Path, rows_map: Dict[date, List[int]], backup: bool 
     return len(rows_map)
 
 
-def append_rows(csv_path: Path, rows: Sequence[Tuple[date, List[int]]]) -> int:
+def append_rows(csv_path: Path, rows: Sequence[tuple[date, list[int]]]) -> int:
     rows_map = load_csv_map(csv_path)
     added = 0
     for d, nums in rows:
@@ -279,7 +278,7 @@ def append_rows(csv_path: Path, rows: Sequence[Tuple[date, List[int]]]) -> int:
     return added
 
 
-def upsert_rows(csv_path: Path, rows: Sequence[Tuple[date, List[int]]], backup: bool = False) -> Tuple[int, int]:
+def upsert_rows(csv_path: Path, rows: Sequence[tuple[date, list[int]]], backup: bool = False) -> tuple[int, int]:
     rows_map = load_csv_map(csv_path)
     inserted = 0
     updated = 0
@@ -296,7 +295,7 @@ def upsert_rows(csv_path: Path, rows: Sequence[Tuple[date, List[int]]], backup: 
     return inserted, updated
 
 
-def dump_debug_html(debug_dir: Optional[Path], d: date, tag: str, reason: str, html: str) -> None:
+def dump_debug_html(debug_dir: Path | None, d: date, tag: str, reason: str, html: str) -> None:
     if not debug_dir:
         return
     try:
@@ -316,7 +315,7 @@ class FetchConfig:
     max_retry_after_s: float = 20.0
 
 
-def fetch_html(session: requests.Session, url: str, cfg: FetchConfig) -> Optional[str]:
+def fetch_html(session: requests.Session, url: str, cfg: FetchConfig) -> str | None:
     for i in range(1, cfg.attempts + 1):
         try:
             r = session.get(url, timeout=cfg.timeout_s)
@@ -345,7 +344,7 @@ def normalize_text(s: str) -> str:
     return " ".join((s or "").split()).strip().lower()
 
 
-def date_tokens(d: date) -> List[str]:
+def date_tokens(d: date) -> list[str]:
     tokens = [
         d.strftime("%Y-%m-%d"),
         d.strftime("%d-%m-%Y"),
@@ -360,7 +359,7 @@ def date_tokens(d: date) -> List[str]:
     return list(dict.fromkeys(tokens))
 
 
-def extract_page_date(soup: BeautifulSoup) -> Optional[date]:
+def extract_page_date(soup: BeautifulSoup) -> date | None:
     text = soup.get_text(" ", strip=True)
     m = DATE_RE.search(text)
     if not m:
@@ -385,7 +384,7 @@ def page_mentions_target_date(soup: BeautifulSoup, d: date) -> bool:
     return any(token in text for token in date_tokens(d))
 
 
-def validar_superkino(nums: List[int]) -> bool:
+def validar_superkino(nums: list[int]) -> bool:
     return (
         len(nums) == DRAW_SIZE
         and len(set(nums)) == DRAW_SIZE
@@ -393,9 +392,9 @@ def validar_superkino(nums: List[int]) -> bool:
     )
 
 
-def dedupe_keep_order(nums: List[int], target: int = DRAW_SIZE) -> List[int]:
-    seen: Set[int] = set()
-    out: List[int] = []
+def dedupe_keep_order(nums: list[int], target: int = DRAW_SIZE) -> list[int]:
+    seen: set[int] = set()
+    out: list[int] = []
     for n in nums:
         if n in seen:
             continue
@@ -406,8 +405,8 @@ def dedupe_keep_order(nums: List[int], target: int = DRAW_SIZE) -> List[int]:
     return out
 
 
-def ints_in(node) -> List[int]:
-    nums: List[int] = []
+def ints_in(node) -> list[int]:
+    nums: list[int] = []
     for el in node.select("span.score, li span.number, span.number, .score, .number"):
         t = el.get_text(strip=True)
         if t.isdigit():
@@ -415,7 +414,7 @@ def ints_in(node) -> List[int]:
     return nums
 
 
-def extract_20_from_result_sentence(soup: BeautifulSoup, target: Optional[date] = None) -> Optional[List[int]]:
+def extract_20_from_result_sentence(soup: BeautifulSoup, target: date | None = None) -> list[int] | None:
     """Extrae la frase estable: '... del <fecha> fue 01-02-...-20'."""
     text = soup.get_text(" ", strip=True)
     if target is not None:
@@ -432,7 +431,7 @@ def extract_20_from_result_sentence(soup: BeautifulSoup, target: Optional[date] 
     return nums if validar_superkino(nums) else None
 
 
-def extract_spanish_page_date(soup: BeautifulSoup) -> Optional[date]:
+def extract_spanish_page_date(soup: BeautifulSoup) -> date | None:
     text = normalize_text(soup.get_text(" ", strip=True))
     month_lookup = {name: num for num, name in SPANISH_MONTHS.items()}
     m = re.search(
@@ -448,11 +447,11 @@ def extract_spanish_page_date(soup: BeautifulSoup) -> Optional[date]:
         return None
 
 
-def extract_20_by_labeled_section(soup: BeautifulSoup, target: Optional[date] = None) -> Optional[List[int]]:
+def extract_20_by_labeled_section(soup: BeautifulSoup, target: date | None = None) -> list[int] | None:
     text = soup.get_text(" ", strip=True)
     label_pat = r"(?:super\s*kino\s*tv|kino\s*tv|kinotv|super\s*kino)"
     run_pat = r"((?:\b\d{1,2}\b\s+){19}\b\d{1,2}\b)"
-    patterns: List[str] = []
+    patterns: list[str] = []
     if target is not None:
         for token in date_tokens(target):
             t = re.escape(token)
@@ -473,15 +472,15 @@ def extract_20_by_labeled_section(soup: BeautifulSoup, target: Optional[date] = 
     return None
 
 
-def extract_20_by_text_run(soup: BeautifulSoup, target: Optional[date] = None) -> Optional[List[int]]:
+def extract_20_by_text_run(soup: BeautifulSoup, target: date | None = None) -> list[int] | None:
     text = soup.get_text(" ", strip=True)
-    targets: List[int] = []
+    targets: list[int] = []
     if target is not None:
         for s in date_tokens(target):
             idx = text.find(s)
             if idx != -1:
                 targets.append(idx)
-    best: Optional[Tuple[int, List[int]]] = None
+    best: tuple[int, list[int]] | None = None
     for m in RUN20_RE.finditer(text):
         nums = [int(x) for x in re.findall(r"\b\d{1,2}\b", m.group(0))]
         nums = dedupe_keep_order(nums, 20)
@@ -496,7 +495,7 @@ def extract_20_by_text_run(soup: BeautifulSoup, target: Optional[date] = None) -
     return best[1] if best else None
 
 
-def extract_20_from_gameblocks(soup: BeautifulSoup) -> Optional[List[int]]:
+def extract_20_from_gameblocks(soup: BeautifulSoup) -> list[int] | None:
     selectors = [".game-block", ".result", ".result-item", "article", ".card"]
     for sel in selectors:
         for block in soup.select(sel):
@@ -513,21 +512,21 @@ def extract_20_from_gameblocks(soup: BeautifulSoup) -> Optional[List[int]]:
     return None
 
 
-def extract_latest_superkino_entry(soup: BeautifulSoup) -> Optional[Tuple[date, List[int]]]:
+def extract_latest_superkino_entry(soup: BeautifulSoup) -> tuple[date, list[int]] | None:
     text = soup.get_text(" ", strip=True)
     # Busca secuencias tipo "03-06 Super Kino TV 01 07 11 ..."
     pattern = re.compile(
         r"(\d{2}-\d{2}(?:-\d{4})?).{0,120}?(?:super\s*kino\s*tv|kino\s*tv|kinotv|super\s*kino).{0,200}?((?:\b\d{1,2}\b\s+){19}\b\d{1,2}\b)",
         re.I | re.S
     )
-    best: Optional[Tuple[date, List[int]]] = None
+    best: tuple[date, list[int]] | None = None
     current_year = today_rd().year
     for m in pattern.finditer(text):
         raw_date = m.group(1)
         nums = dedupe_keep_order([int(x) for x in re.findall(r"\b\d{1,2}\b", m.group(2))], 20)
         if not validar_superkino(nums):
             continue
-        d: Optional[date] = None
+        d: date | None = None
         for fmt in ("%d-%m-%Y", "%d-%m"):
             try:
                 parsed = datetime.strptime(raw_date, fmt)
@@ -550,9 +549,9 @@ def scrape_superkino_for_date(
     d: date,
     cfg: FetchConfig,
     validate_page_date: bool = True,
-    debug_dir: Optional[Path] = None,
-) -> Optional[Tuple[date, List[int], str]]:
-    extractors: Sequence[Callable[[BeautifulSoup], Optional[List[int]]]] = (
+    debug_dir: Path | None = None,
+) -> tuple[date, list[int], str] | None:
+    extractors: Sequence[Callable[[BeautifulSoup], list[int] | None]] = (
         lambda soup: extract_20_from_result_sentence(soup, target=d),
         lambda soup: extract_20_by_labeled_section(soup, target=d),
         lambda soup: extract_20_by_text_run(soup, target=d),
@@ -582,7 +581,7 @@ def scrape_superkino_for_date(
     return None
 
 
-def extract_latest_stable_entry(soup: BeautifulSoup) -> Optional[Tuple[date, List[int]]]:
+def extract_latest_stable_entry(soup: BeautifulSoup) -> tuple[date, list[int]] | None:
     d = extract_spanish_page_date(soup) or extract_page_date(soup)
     if d is None:
         return None
@@ -595,8 +594,8 @@ def extract_latest_stable_entry(soup: BeautifulSoup) -> Optional[Tuple[date, Lis
 def scrape_latest_superkino(
     session: requests.Session,
     cfg: FetchConfig,
-    debug_dir: Optional[Path] = None,
-) -> Optional[Tuple[date, List[int], str]]:
+    debug_dir: Path | None = None,
+) -> tuple[date, list[int], str] | None:
     for tag, url in LATEST_URLS:
         html = fetch_html(session, url, cfg)
         if not html:
@@ -617,11 +616,11 @@ def scrape_latest_superkino(
 def build_targets(
     start_d: date,
     end_d: date,
-    dias_set: Set[str],
-    existing: Set[date],
+    dias_set: set[str],
+    existing: set[date],
     skip_early_today: bool,
-) -> List[date]:
-    out: List[date] = []
+) -> list[date]:
+    out: list[date] = []
     for d in iter_dates(start_d, end_d):
         if weekday_code(d) not in dias_set:
             continue
@@ -632,7 +631,7 @@ def build_targets(
     return out
 
 
-def pick_sync_start(args_start: Optional[str], existing_min: Optional[date]) -> date:
+def pick_sync_start(args_start: str | None, existing_min: date | None) -> date:
     if args_start:
         return parse_iso_date(args_start)
     if existing_min is not None:
@@ -640,7 +639,7 @@ def pick_sync_start(args_start: Optional[str], existing_min: Optional[date]) -> 
     return DEFAULT_FULL_SYNC_START
 
 
-def compact_signature(nums: List[int]) -> str:
+def compact_signature(nums: list[int]) -> str:
     return hashlib.sha1(",".join(map(str, nums)).encode("utf-8")).hexdigest()[:12]
 
 
@@ -661,7 +660,7 @@ def save_state(path: Path, data: dict) -> None:
 def repair_csv(csv_path: Path, backup: bool = True) -> dict:
     rows = parse_csv_rows_loose(csv_path)
     before = len(rows)
-    mp: Dict[date, List[int]] = {}
+    mp: dict[date, list[int]] = {}
     duplicates = 0
     for d, nums in rows:
         if d in mp:
@@ -686,7 +685,7 @@ def watch_latest(
     interval_s: float,
     max_cycles: int,
     backup_on_change: bool,
-    debug_dir: Optional[Path] = None,
+    debug_dir: Path | None = None,
 ) -> None:
     state = load_state(state_path)
     cycles = 0
@@ -755,7 +754,7 @@ def main() -> None:
 
     csv_path = Path(args.csv)
     state_path = Path(args.state_file)
-    debug_dir: Optional[Path] = Path(args.debug_dir) if args.debug_dir else None
+    debug_dir: Path | None = Path(args.debug_dir) if args.debug_dir else None
 
     ensure_header(csv_path)
 
@@ -828,7 +827,7 @@ def main() -> None:
                 print(f"✅ No hay huecos por rellenar entre {start_date} y {end_date}. CSV min/max: {mn} / {mx}")
             else:
                 print(f"🧩 Huecos detectados: {len(targets)} (de {start_date} a {end_date})")
-                found: List[Tuple[date, List[int]]] = []
+                found: list[tuple[date, list[int]]] = []
                 misses = 0
                 for d in targets:
                     print(f"🔍 {d.isoformat()} ({weekday_code(d)}) ... ", end="", flush=True)
@@ -862,7 +861,7 @@ def main() -> None:
                     print(f"✅ No hay faltantes recientes. Última fecha en CSV: {mx} | Hoy RD: {end_date}")
                 else:
                     print(f"🧩 Faltantes detectados: {len(targets)} (de {start_date} a {end_date})")
-                    found: List[Tuple[date, List[int]]] = []
+                    found: list[tuple[date, list[int]]] = []
                     misses = 0
                     for d in targets:
                         print(f"🔍 {d.isoformat()} ({weekday_code(d)}) ... ", end="", flush=True)

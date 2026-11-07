@@ -20,7 +20,6 @@ import itertools
 from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional
 
 import numpy as np
 import pandas as pd
@@ -84,12 +83,12 @@ def _load_loose_rows(csv_path: str) -> pd.DataFrame:
     return df
 
 
-def cargar_historico(csv_path: str) -> List[List[int]]:
+def cargar_historico(csv_path: str) -> list[list[int]]:
     df = _load_loose_rows(csv_path)
     if df.empty:
         return []
     cols = [f"num_{i}" for i in range(1, 21)]
-    vals: List[List[int]] = []
+    vals: list[list[int]] = []
     for comb in df[cols].astype(int).values.tolist():
         if len(comb) != 20:
             continue
@@ -101,7 +100,7 @@ def cargar_historico(csv_path: str) -> List[List[int]]:
     return vals
 
 
-def historial_regla_actual(historico: List[List[int]]) -> List[List[int]]:
+def historial_regla_actual(historico: list[list[int]]) -> list[list[int]]:
     """Usa la era 1..84 cuando ya existen sorteos con 81..84.
 
     Antes del cambio reglamentario, 81..84 eran imposibles. Mezclar toda la
@@ -125,13 +124,13 @@ def pesos_recencia(n: int, half_life: int) -> np.ndarray:
     return w / w.sum()
 
 
-def frecuencias_ponderadas(historico: List[List[int]], half_life: int, calc_pairs: bool = True):
+def frecuencias_ponderadas(historico: list[list[int]], half_life: int, calc_pairs: bool = True):
     n = len(historico)
     if n == 0:
         return Counter(), Counter()
     w = pesos_recencia(n, half_life)
-    fnum: Dict[int, float] = defaultdict(float)
-    fpairs: Dict[Tuple[int, int], float] = defaultdict(float)
+    fnum: dict[int, float] = defaultdict(float)
+    fpairs: dict[tuple[int, int], float] = defaultdict(float)
     for i, comb in enumerate(historico):
         wi = float(w[i])
         s = sorted(comb)
@@ -143,7 +142,7 @@ def frecuencias_ponderadas(historico: List[List[int]], half_life: int, calc_pair
     return Counter(fnum), Counter(fpairs)
 
 
-def distrib_buckets(historico: List[List[int]], nbuckets: int = N_BUCKETS) -> np.ndarray:
+def distrib_buckets(historico: list[list[int]], nbuckets: int = N_BUCKETS) -> np.ndarray:
     if not historico:
         return np.array([20.0 / nbuckets] * nbuckets, dtype=np.float64)
     H = np.asarray(historico, dtype=np.int16)
@@ -156,7 +155,7 @@ def distrib_buckets(historico: List[List[int]], nbuckets: int = N_BUCKETS) -> np
     return counts.mean(axis=0).astype(np.float64)
 
 
-def distrib_paridad(historico: List[List[int]]) -> Tuple[float, float]:
+def distrib_paridad(historico: list[list[int]]) -> tuple[float, float]:
     if not historico:
         return 10.0, 10.0
     H = np.asarray(historico, dtype=np.int16)
@@ -181,7 +180,7 @@ def consecutivos_max_sorted(sorted_arr: np.ndarray) -> int:
 
 
 def cumple_reglas_fast(comb_sorted: np.ndarray, target_even: int, parity_tol: int, max_consec: int,
-                       target_bucket_counts: Optional[np.ndarray], bucket_tol: int, min_spread: int) -> bool:
+                       target_bucket_counts: np.ndarray | None, bucket_tol: int, min_spread: int) -> bool:
     even = int((comb_sorted % 2 == 0).sum())
     if abs(even - target_even) > parity_tol:
         return False
@@ -233,7 +232,7 @@ def score_spread(sorted_nums: np.ndarray, alpha: float) -> float:
     return alpha * sp
 
 
-def es_sample_idx(weights: np.ndarray, k: int, rng: np.random.Generator, pool_idx: Optional[np.ndarray] = None) -> np.ndarray:
+def es_sample_idx(weights: np.ndarray, k: int, rng: np.random.Generator, pool_idx: np.ndarray | None = None) -> np.ndarray:
     if pool_idx is None:
         pool_idx = np.arange(weights.size, dtype=np.int16)
     w = np.clip(weights[pool_idx].astype(np.float64, copy=False), 1e-12, None)
@@ -245,13 +244,18 @@ def es_sample_idx(weights: np.ndarray, k: int, rng: np.random.Generator, pool_id
 
 
 def invert_weights(W: np.ndarray) -> np.ndarray:
-    inv = 1.0 / np.clip(W.astype(np.float64, copy=False), 1e-9, None)
+    # Piso relativo: un número sin historial (p. ej. 81..84 recién habilitados)
+    # no debe recibir un peso "frío" casi infinito que monopolice el muestreo.
+    W = W.astype(np.float64, copy=False)
+    positivos = W[W > 0]
+    piso = 0.5 * float(positivos.min()) if positivos.size else 1.0 / max(1, W.size)
+    inv = 1.0 / np.clip(W, piso, None)
     inv = inv / inv.sum()
     return inv.astype(np.float64, copy=False)
 
 
 def mejor_de_n(n_cands: int, sampler_idx, rules_kwargs: dict, pair_mat: np.ndarray, W: np.ndarray,
-               rng: np.random.Generator, k: int, alpha_pairs: float, alpha_num: float, alpha_spread: float) -> List[int]:
+               rng: np.random.Generator, k: int, alpha_pairs: float, alpha_num: float, alpha_spread: float) -> list[int]:
     best = None
     bestS = -1e18
     for _ in range(n_cands):
@@ -281,15 +285,15 @@ def mejor_de_n(n_cands: int, sampler_idx, rules_kwargs: dict, pair_mat: np.ndarr
     return nums.tolist()
 
 
-def diversificar_sets(pred_sets: List[set], nueva: List[int], max_overlap: int) -> bool:
+def diversificar_sets(pred_sets: list[set], nueva: list[int], max_overlap: int) -> bool:
     s = set(nueva)
     return all(len(ps & s) <= max_overlap for ps in pred_sets)
 
 
-def generar_panels(historico: List[List[int]], panels: int = 8, k: int = 10, seed: Optional[int] = None,
+def generar_panels(historico: list[list[int]], panels: int = 8, k: int = 10, seed: int | None = None,
                    half_life: int = 120, recent_window: int = 300, max_consec: int = 2, max_overlap: int = 7,
                    n_cands: int = 1200, alpha_pairs: float = 1.0, alpha_num: float = 0.35,
-                   alpha_spread: float = 0.15, min_spread: Optional[int] = None):
+                   alpha_spread: float = 0.15, min_spread: int | None = None):
     rng = np.random.default_rng(seed)
     historico_modelo = historial_regla_actual(historico)
     fnum, _ = frecuencias_ponderadas(historico_modelo, half_life, calc_pairs=False) if historico_modelo else (Counter(), Counter())
@@ -344,7 +348,7 @@ def generar_panels(historico: List[List[int]], panels: int = 8, k: int = 10, see
 
     def samp_bucket_idx():
         selected = np.zeros(MAX_NUMBER, dtype=bool)
-        picks: List[int] = []
+        picks: list[int] = []
         for b in range(N_BUCKETS):
             t = int(target_bucket_counts[b])
             if t <= 0:
@@ -388,7 +392,9 @@ def generar_panels(historico: List[List[int]], panels: int = 8, k: int = 10, see
         overlap_now = int(rel["overlap"])
         tries, max_tries = 0, max(800, panels * 200)
         while len(preds) < panels and tries < max_tries:
-            name = strat_order[len(preds) % len(strat_order)]
+            # Rotar también por intento: si una estrategia no logra cumplir las
+            # reglas, no bloquea el panel durante cientos de intentos.
+            name = strat_order[(len(preds) + tries) % len(strat_order)]
             cand = mejor_de_n(n_cands=n_cands, sampler_idx=strat_map[name], rules_kwargs=rules, pair_mat=pair_mat,
                               W=W, rng=rng, k=k, alpha_pairs=alpha_pairs, alpha_num=alpha_num, alpha_spread=alpha_spread)
             cand_arr = np.asarray(cand, dtype=np.int16)

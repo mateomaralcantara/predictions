@@ -1,10 +1,11 @@
+import os
 import requests
 from bs4 import BeautifulSoup
 from datetime import date, timedelta
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
-from main import ResultadoTradicional, Base
+from app.db import Base, ResultadoTradicional
 
 LOTERIAS_TRADICIONALES = [
     "Gana Más", "Lotería Nacional", "Loteria Real", "Pega 3 Más", "Quiniela Leidsa", "Florida Día", "New York Noche",
@@ -12,7 +13,7 @@ LOTERIAS_TRADICIONALES = [
     "Anguila Mañana", "Anguila Medio Día", "Anguila Tarde", "Anguila Noche", "King Lottery 12:30", "King Lottery 7:30"
 ]
 
-DATABASE_URL = "postgresql://postgres:123456@localhost:5432/loterias_db"
+DATABASE_URL = os.environ["DATABASE_URL"]
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
 session = SessionLocal()

@@ -1,21 +1,25 @@
 from __future__ import annotations
 
-import argparse, csv, itertools
+import argparse
+import csv
+import itertools
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Sequence, Tuple
+
 import numpy as np
+
 
 @dataclass(frozen=True)
 class Draw:
     fecha: str
-    nums: Tuple[int,...]
+    nums: tuple[int,...]
     mas: int
     super_mas: int
 
 
-def load_csv(path: str) -> List[Draw]:
+def load_csv(path: str) -> list[Draw]:
     p=Path(path); out=[]
     if not p.exists(): return out
     with p.open("r",encoding="utf-8-sig",newline="") as f:
@@ -62,11 +66,11 @@ def score(nums:Sequence[int],W:np.ndarray,P:np.ndarray)->float:
     s=sorted(nums); return sum(W[n] for n in s)+.75*sum(P[a,b] for a,b in itertools.combinations(s,2))+.08*((s[-1]-s[0])/39)
 
 
-def pick(weights:np.ndarray,k:int,rng:np.random.Generator)->List[int]:
+def pick(weights:np.ndarray,k:int,rng:np.random.Generator)->list[int]:
     p=np.clip(weights[1:],1e-12,None); p=p/p.sum(); return sorted(int(x) for x in rng.choice(np.arange(1,len(weights)),k,replace=False,p=p))
 
 
-def panels(draws:Sequence[Draw],count:int,seed:Optional[int],half:int,candidates:int,max_overlap:int)->List[List[int]]:
+def panels(draws:Sequence[Draw],count:int,seed:int | None,half:int,candidates:int,max_overlap:int)->list[list[int]]:
     rng=np.random.default_rng(seed); recent=list(draws[-220:]); W,P=stats(recent,half)
     cold=np.zeros_like(W); cold[1:]=1/np.clip(W[1:],1e-9,None); cold[1:]/=cold[1:].sum()
     pool={}

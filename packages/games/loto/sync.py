@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-import argparse, csv, re, time
+import argparse
+import csv
+import re
+import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
 
 import requests
 from bs4 import BeautifulSoup
@@ -38,7 +40,7 @@ def parse_date(raw: str) -> date:
     raise ValueError(f"Fecha inválida: {raw}")
 
 
-def valid(nums: List[int], mas: int, super_mas: int) -> bool:
+def valid(nums: list[int], mas: int, super_mas: int) -> bool:
     return len(nums)==6 and len(set(nums))==6 and all(1<=n<=40 for n in nums) and 1<=mas<=12 and 1<=super_mas<=15
 
 
@@ -50,8 +52,8 @@ def ensure_csv(path: Path) -> None:
         csv.writer(f).writerow(["fecha","num_1","num_2","num_3","num_4","num_5","num_6","mas","super_mas"])
 
 
-def read_map(path: Path) -> Dict[date, Tuple[List[int], int, int]]:
-    out: Dict[date, Tuple[List[int], int, int]] = {}
+def read_map(path: Path) -> dict[date, tuple[list[int], int, int]]:
+    out: dict[date, tuple[list[int], int, int]] = {}
     if not path.exists():
         return out
     with path.open("r", encoding="utf-8-sig", newline="") as f:
@@ -67,7 +69,7 @@ def read_map(path: Path) -> Dict[date, Tuple[List[int], int, int]]:
     return dict(sorted(out.items()))
 
 
-def write_map(path: Path, rows: Dict[date, Tuple[List[int], int, int]], backup: bool=False) -> None:
+def write_map(path: Path, rows: dict[date, tuple[list[int], int, int]], backup: bool=False) -> None:
     if backup and path.exists():
         stamp=datetime.now().strftime("%Y%m%d_%H%M%S")
         path.with_suffix(path.suffix+f".bak_{stamp}").write_bytes(path.read_bytes())
@@ -78,7 +80,7 @@ def write_map(path: Path, rows: Dict[date, Tuple[List[int], int, int]], backup: 
     tmp.replace(path)
 
 
-def extract_date(soup: BeautifulSoup) -> Optional[date]:
+def extract_date(soup: BeautifulSoup) -> date | None:
     text=" ".join(soup.get_text(" ",strip=True).split()).lower()
     names={v:k for k,v in MONTHS.items()}
     m=re.search(r"\b(\d{1,2}) de (enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre) de (20\d{2})\b",text)
@@ -87,7 +89,7 @@ def extract_date(soup: BeautifulSoup) -> Optional[date]:
     except Exception: return None
 
 
-def extract_result(soup: BeautifulSoup, d: date) -> Optional[Tuple[List[int],int,int]]:
+def extract_result(soup: BeautifulSoup, d: date) -> tuple[list[int], int, int] | None:
     text=" ".join(soup.get_text(" ",strip=True).split())
     phrase=re.escape(f"{d.day} de {MONTHS[d.month]} de {d.year}")
     patterns=[
@@ -102,7 +104,7 @@ def extract_result(soup: BeautifulSoup, d: date) -> Optional[Tuple[List[int],int
     return None
 
 
-def fetch(session: requests.Session, d: date, timeout: float, attempts: int) -> Optional[Tuple[List[int],int,int]]:
+def fetch(session: requests.Session, d: date, timeout: float, attempts: int) -> tuple[list[int], int, int] | None:
     url=URL.format(datetime.combine(d,datetime.min.time()))
     for i in range(attempts):
         try:
@@ -130,7 +132,7 @@ def fetch_latest(session: requests.Session, timeout: float, attempts: int):
     return None
 
 
-def target_dates(start: date, end: date, existing: Set[date], include_today_early: bool=False) -> List[date]:
+def target_dates(start: date, end: date, existing: set[date], include_today_early: bool=False) -> list[date]:
     out=[]; d=start; now=now_rd()
     while d<=end:
         if DOW[d.weekday()] in {"X","S"} and d not in existing:

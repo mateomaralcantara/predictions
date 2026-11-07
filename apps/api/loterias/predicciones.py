@@ -1,15 +1,10 @@
+import os
 import psycopg2
 from collections import Counter
 import itertools
 
 # Conexión
-conn = psycopg2.connect(
-    dbname="loteria",
-    user="postgres",
-    password="123456",
-    host="localhost",
-    port="5432"
-)
+conn = psycopg2.connect(os.environ["DATABASE_URL"])
 cur = conn.cursor()
 
 cur.execute("SELECT numeros FROM leidsa_loto")

@@ -1,10 +1,15 @@
 [tool.ruff]
 target-version = "py311"
-line-length = 100
+line-length = 120
+# Scripts legacy pendientes de migrar a packages/: fuera del lint estricto.
+extend-exclude = ["apps/api/loterias", "apps/api/leidsa", "apps/api/scraper", "apps/api/tools"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
-ignore = ["E501"]
+ignore = ["E501", "E701", "E702", "E731"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "packages", "conftest"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -12,5 +17,5 @@ pythonpath = ["."]
 addopts = "-q"
 
 [tool.black]
-line-length = 100
+line-length = 120
 target-version = ["py311"]

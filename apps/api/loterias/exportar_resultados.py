@@ -1,8 +1,9 @@
+import os
 from sqlalchemy import create_engine
 import pandas as pd
 
 # Conexión a la base de datos
-engine = create_engine('postgresql://postgres:123456@localhost:5432/loterias_db')
+engine = create_engine(os.environ["DATABASE_URL"])
 
 # Ejecutar la consulta y guardar en DataFrame
 query = "SELECT * FROM resultados_tradicionales WHERE fecha >= '2010-08-01' ORDER BY fecha"

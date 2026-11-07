@@ -1,6 +1,7 @@
 import psycopg2
 from psycopg2 import OperationalError
 
+
 def verificar_conexion(user, password, dbname, host="localhost", port="5432"):
     try:
         conn = psycopg2.connect(
