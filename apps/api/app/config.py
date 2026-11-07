@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 import os
 import secrets
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from functools import lru_cache
 from pathlib import Path
 
@@ -100,8 +100,33 @@ class Settings:
         return bool(self.paypal_client_id and self.paypal_secret)
 
 
-@lru_cache
+_override: Settings | None = None
+
+
 def get_settings() -> Settings:
+    return _override or _build_settings()
+
+
+def _cache_clear() -> None:
+    global _override
+    _override = None
+    _build_settings.cache_clear()
+
+
+get_settings.cache_clear = _cache_clear  # type: ignore[attr-defined]
+
+
+def usar_sqlite_local() -> Settings:
+    """Desarrollo: si la base configurada no responde, guarda cuentas en SQLite local."""
+    global _override
+    db_file = REPO_ROOT / "data" / "app.db"
+    db_file.parent.mkdir(parents=True, exist_ok=True)
+    _override = replace(_build_settings(), app_database_url=f"sqlite:///{db_file}", database_url=None)
+    return _override
+
+
+@lru_cache
+def _build_settings() -> Settings:
     frontend_url = _env("FRONTEND_URL", "http://localhost:5174").rstrip("/")
     default_origins = [
         frontend_url,

@@ -30,7 +30,21 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     if settings.auto_migrate:
         from .migrate import upgrade
 
-        upgrade(settings.app_database_url)
+        try:
+            upgrade(settings.app_database_url)
+        except Exception as exc:
+            if settings.is_production:
+                raise
+            # Desarrollo: típico .env apuntando a un PostgreSQL apagado.
+            log.error(
+                "No se pudo conectar a la base de datos configurada (%s). "
+                "Se usará SQLite local para las cuentas y el CSV para los resultados. "
+                "Revisa DATABASE_URL / DB_* en apps/api/.env o enciende PostgreSQL.",
+                exc.__class__.__name__,
+            )
+            from .config import usar_sqlite_local
+
+            upgrade(usar_sqlite_local().app_database_url)
         log.info("Base de datos de la app al día.")
     yield
 

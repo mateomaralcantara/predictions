@@ -65,7 +65,12 @@ async function request<T>(path: string, init?: RequestInit & { query?: Query }):
     window.dispatchEvent(new Event(SESION_EXPIRADA));
   }
   if (!res.ok) {
-    let detail = res.status === 429 ? "Demasiadas solicitudes. Espera un momento." : `Error ${res.status}`;
+    let detail =
+      res.status === 429
+        ? "Demasiadas solicitudes. Espera un momento."
+        : res.status >= 500
+          ? "La API no responde. ¿Está encendida? (npm run api:dev)"
+          : `Error ${res.status}`;
     try {
       const body = await res.json();
       if (typeof body?.detail === "string") detail = body.detail;

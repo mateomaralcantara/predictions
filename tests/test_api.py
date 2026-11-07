@@ -144,3 +144,31 @@ def test_normalizar_url_postgres():
     assert normalizar_url("postgresql://u@h/db") == "postgresql+psycopg://u@h/db"
     assert normalizar_url("postgresql+psycopg2://u@h/db") == "postgresql+psycopg://u@h/db"
     assert normalizar_url("sqlite:///x.db") == "sqlite:///x.db"
+
+
+def test_desarrollo_sigue_funcionando_si_postgres_no_responde(env):
+    """Un .env apuntando a un PostgreSQL apagado no debe tumbar la API en desarrollo."""
+    from fastapi.testclient import TestClient
+
+    from app.config import get_settings
+    from app.main import create_app
+
+    env(ENVIRONMENT="development", APP_DATABASE_URL="", DATABASE_URL="postgresql://u:p@127.0.0.1:1/nada")
+    with TestClient(create_app()) as c:
+        assert get_settings().app_database_url.startswith("sqlite")
+        assert c.get("/api/health").json()["fuente_datos"] == "csv"
+        r = c.post(
+            "/api/auth/registro", json={"email": "dev@example.com", "password": "clave-segura-1", "nombre": "Dev"}
+        )
+        assert r.status_code in (201, 409)
+
+
+def test_produccion_falla_si_postgres_no_responde(env):
+    import pytest
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+
+    env(ENVIRONMENT="production", APP_DATABASE_URL="", DATABASE_URL="postgresql://u:p@127.0.0.1:1/nada")
+    with pytest.raises(Exception), TestClient(create_app()):
+        pass
