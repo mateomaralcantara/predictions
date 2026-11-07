@@ -10,6 +10,7 @@
     "check": "npm run lint && npm run test && npm run build",
     "cli": "cd apps/api && python -m app.cli",
     "dev": "npm run web:dev",
+    "doctor": "python scripts/doctor.py",
     "lint": "ruff check . && npm --workspace apps/web run lint",
     "loto:all": "powershell -ExecutionPolicy Bypass -File ./scripts/monorepo.ps1 loto-all",
     "loto:predict": "powershell -ExecutionPolicy Bypass -File ./scripts/monorepo.ps1 loto-predict",

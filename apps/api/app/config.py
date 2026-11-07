@@ -77,6 +77,8 @@ class Settings:
     database_url: str | None
     openai_api_key: str | None
     openai_model: str
+    gemini_api_key: str | None
+    gemini_model: str
     paypal_client_id: str | None
     paypal_secret: str | None
     paypal_base_url: str
@@ -94,6 +96,19 @@ class Settings:
     @property
     def openai_enabled(self) -> bool:
         return bool(self.openai_api_key)
+
+    @property
+    def gemini_enabled(self) -> bool:
+        return bool(self.gemini_api_key)
+
+    @property
+    def ia_proveedor(self) -> str | None:
+        """Gemini tiene prioridad si hay clave; luego OpenAI; si no, respuestas locales."""
+        if self.gemini_enabled:
+            return "gemini"
+        if self.openai_enabled:
+            return "openai"
+        return None
 
     @property
     def paypal_enabled(self) -> bool:
@@ -164,6 +179,8 @@ def _build_settings() -> Settings:
         database_url=database_url,
         openai_api_key=_env("OPENAI_API_KEY"),
         openai_model=_env("OPENAI_MODEL", "gpt-4o-mini"),
+        gemini_api_key=_env("GEMINI_API_KEY") or _env("GOOGLE_API_KEY"),
+        gemini_model=_env("GEMINI_MODEL", "gemini-2.5-flash"),
         paypal_client_id=_env("PAYPAL_CLIENT_ID"),
         paypal_secret=_env("PAYPAL_SECRET"),
         paypal_base_url=_env("PAYPAL_BASE_URL", "https://api-m.sandbox.paypal.com").rstrip("/"),

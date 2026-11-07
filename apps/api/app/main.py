@@ -93,6 +93,7 @@ def create_app() -> FastAPI:
             "sorteos": len(rows),
             "sorteos_descartados": repo.descartados,
             "ultimo_sorteo": rows[-1].fecha.isoformat() if rows else None,
+            "ia": settings.ia_proveedor,
             "openai": settings.openai_enabled,
             "pagos": settings.paypal_enabled,
             "entorno": settings.environment,

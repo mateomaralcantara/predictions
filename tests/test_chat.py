@@ -58,3 +58,38 @@ def test_responder_agrega_aviso_y_no_llama_openai_sin_clave():
 def test_pregunta_vacia():
     r = asyncio.run(chat.responder("   ", ROWS, get_settings()))
     assert r.intencion == "vacia"
+
+
+def test_gemini_redacta_la_respuesta(env, monkeypatch):
+    import json
+
+    import httpx
+
+    llamadas = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        llamadas.append(request)
+        return httpx.Response(
+            200, json={"candidates": [{"content": {"parts": [{"text": "El 10 es el que más sale."}]}}]}
+        )
+
+    env(GEMINI_API_KEY="clave-gemini")
+    monkeypatch.setattr(chat, "_gemini_transport", httpx.MockTransport(handler))
+    s = get_settings()
+    assert s.ia_proveedor == "gemini"
+    r = asyncio.run(chat.responder("top 1 números de la nacional", ROWS, s))
+    assert r.texto.startswith("El 10 es el que más sale.")
+    req = llamadas[0]
+    assert req.headers["x-goog-api-key"] == "clave-gemini"
+    assert "gemini-2.5-flash:generateContent" in str(req.url)
+    body = json.loads(req.content)
+    assert "10 — 3 veces" in body["systemInstruction"]["parts"][0]["text"]  # datos reales como contexto
+
+
+def test_si_gemini_falla_se_usa_la_respuesta_local(env, monkeypatch):
+    import httpx
+
+    env(GEMINI_API_KEY="clave-gemini")
+    monkeypatch.setattr(chat, "_gemini_transport", httpx.MockTransport(lambda r: httpx.Response(429, json={})))
+    r = asyncio.run(chat.responder("top 1 números de la nacional", ROWS, get_settings()))
+    assert "10 — 3 veces" in r.texto

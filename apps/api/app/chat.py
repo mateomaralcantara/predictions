@@ -182,6 +182,45 @@ def responder_local(consulta: Consulta, rows: list[Resultado]) -> Respuesta:
     return Respuesta("desconocida", AYUDA)
 
 
+def _instrucciones(borrador: str) -> str:
+    return (
+        "Eres el asistente de una app de estadísticas de loterías dominicanas. "
+        "Responde en español, breve y claro, usando EXCLUSIVAMENTE los datos dados. "
+        "No inventes números ni prometas ganancias; los sorteos son aleatorios. "
+        f"Fecha de hoy: {date.today().isoformat()}.\n\nDATOS:\n{borrador}"
+    )
+
+
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+_gemini_transport = None  # los tests inyectan un httpx.MockTransport
+
+
+async def _redactar_con_gemini(settings: Settings, pregunta: str, borrador: str) -> str | None:
+    import httpx
+
+    body = {
+        "systemInstruction": {"parts": [{"text": _instrucciones(borrador)}]},
+        "contents": [{"role": "user", "parts": [{"text": pregunta}]}],
+        "generationConfig": {"temperature": 0.3, "maxOutputTokens": 600},
+    }
+    try:
+        async with httpx.AsyncClient(timeout=20, transport=_gemini_transport) as client:
+            resp = await client.post(
+                GEMINI_URL.format(model=settings.gemini_model),
+                json=body,
+                headers={"x-goog-api-key": settings.gemini_api_key or ""},
+            )
+        if resp.status_code != 200:
+            log.warning("Gemini respondió %s; respuesta local.", resp.status_code)
+            return None
+        partes = resp.json()["candidates"][0]["content"]["parts"]
+        texto = "".join(p.get("text", "") for p in partes).strip()
+        return texto or None
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Gemini no disponible (%s); respuesta local.", exc.__class__.__name__)
+        return None
+
+
 async def _redactar_con_openai(settings: Settings, pregunta: str, borrador: str) -> str | None:
     try:
         from openai import AsyncOpenAI
@@ -192,15 +231,7 @@ async def _redactar_con_openai(settings: Settings, pregunta: str, borrador: str)
             temperature=0.3,
             max_tokens=400,
             messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "Eres el asistente de una app de estadísticas de loterías dominicanas. "
-                        "Responde en español, breve y claro, usando EXCLUSIVAMENTE los datos dados. "
-                        "No inventes números ni prometas ganancias; los sorteos son aleatorios. "
-                        f"Fecha de hoy: {date.today().isoformat()}.\n\nDATOS:\n{borrador}"
-                    ),
-                },
+                {"role": "system", "content": _instrucciones(borrador)},
                 {"role": "user", "content": pregunta},
             ],
         )
@@ -215,8 +246,10 @@ async def responder(pregunta: str, rows: list[Resultado], settings: Settings) ->
     if not pregunta:
         return Respuesta("vacia", "Escribe una pregunta. " + AYUDA)
     respuesta = responder_local(interpretar(pregunta), rows)
-    if settings.openai_enabled and respuesta.intencion not in {"ayuda", "desconocida", "vacia"}:
-        redactada = await _redactar_con_openai(settings, pregunta, respuesta.texto)
+    proveedor = settings.ia_proveedor
+    if proveedor and respuesta.intencion not in {"ayuda", "desconocida", "vacia"}:
+        redactar = _redactar_con_gemini if proveedor == "gemini" else _redactar_con_openai
+        redactada = await redactar(settings, pregunta, respuesta.texto)
         if redactada:
             respuesta.texto = redactada
     if respuesta.intencion not in {"ayuda", "desconocida", "vacia"}:

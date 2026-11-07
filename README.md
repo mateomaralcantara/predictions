@@ -29,7 +29,9 @@ npm run api:dev        # API en http://localhost:8000 (docs en /docs)
 npm run dev            # Web en http://localhost:5174
 ```
 
-Funciona sin configurar nada: usa SQLite para las cuentas y los CSV para el histórico. Sin OpenAI, el chat responde con reglas locales; sin PayPal, los planes aparecen como «Próximamente». Para configurar algo, copia `apps/api/.env.example` a `apps/api/.env`.
+¿Algo no arranca? Ejecuta `npm run doctor`: revisa Python, las dependencias, el `.env`, los puertos y los datos, arranca la API en memoria y dice qué falla.
+
+Funciona sin configurar nada: usa SQLite para las cuentas y los CSV para el histórico. Sin Gemini ni OpenAI, el chat responde con reglas locales; sin PayPal, los planes aparecen como «Próximamente». Para configurar algo, copia `apps/api/.env.example` a `apps/api/.env`.
 
 ## Producción con Docker
 
