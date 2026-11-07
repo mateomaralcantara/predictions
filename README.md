@@ -75,7 +75,7 @@ Las migraciones se aplican solas al arrancar la API. La web (nginx) sirve el fro
 Administración:
 
 ```bash
-cd apps/api && python -m app.cli --help   # migrar · importar-csv · crear-admin · dar-plan
+npm run cli -- --help    # migrar · importar-csv · crear-admin · dar-plan (desde la raíz)
 ```
 
 ## Datos
