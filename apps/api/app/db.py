@@ -22,7 +22,7 @@ from sqlalchemy import (
     create_engine,
     event,
 )
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
 
@@ -106,8 +106,23 @@ def get_engine(url: str) -> Engine:
             dbapi_conn.execute("PRAGMA foreign_keys=ON")
 
         return engine
-    connect_args = {"connect_timeout": 3} if url.startswith("postgresql") else {}
-    return create_engine(url, pool_pre_ping=True, connect_args=connect_args)
+    return create_engine(url, pool_pre_ping=True, connect_args=connect_args_postgres(url))
+
+
+def connect_args_postgres(url: str) -> dict:
+    """Opciones de conexión; ajustes específicos para Supabase."""
+    if not url.startswith("postgresql"):
+        return {}
+    args: dict = {"connect_timeout": 5}
+    parsed = make_url(url)
+    host = parsed.host or ""
+    if host.endswith((".supabase.co", ".supabase.com")) and "sslmode" not in parsed.query:
+        args["sslmode"] = "require"
+    # El "transaction pooler" (PgBouncer, puerto 6543) no admite sentencias
+    # preparadas en el servidor: hay que desactivarlas en psycopg 3.
+    if parsed.port == 6543:
+        args["prepare_threshold"] = None
+    return args
 
 
 @lru_cache

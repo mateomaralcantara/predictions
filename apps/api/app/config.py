@@ -17,9 +17,16 @@ from dotenv import load_dotenv
 API_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = API_DIR.parents[1]
 
-# El .env de apps/api tiene prioridad sobre el de la raíz del repo.
-load_dotenv(API_DIR / ".env")
-load_dotenv(REPO_ROOT / ".env")
+# Orden de prioridad (la primera que defina una variable gana; las variables
+# de entorno del sistema siempre ganan a cualquier archivo):
+ENV_FILES = (
+    REPO_ROOT / ".env.local",  # configuración local recomendada (npm run setup)
+    API_DIR / ".env.local",
+    API_DIR / ".env",  # compatibilidad con instalaciones anteriores
+    REPO_ROOT / ".env",
+)
+for _f in ENV_FILES:
+    load_dotenv(_f, override=False)
 
 
 def _env(name: str, default: str | None = None) -> str | None:
@@ -45,7 +52,7 @@ def _path_from_env(name: str, *defaults: Path) -> Path:
 
 
 def _database_url() -> str | None:
-    url = _env("DATABASE_URL")
+    url = _env("DATABASE_URL") or _env("SUPABASE_DB_URL")
     if url:
         return url
     host, name, user = _env("DB_HOST"), _env("DB_NAME"), _env("DB_USER")

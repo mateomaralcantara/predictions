@@ -28,6 +28,7 @@ TEST_ENV = {
     "DB_HOST": "",
     "OPENAI_API_KEY": "",
     "GEMINI_API_KEY": "",
+    "SUPABASE_DB_URL": "",
     "GOOGLE_API_KEY": "",
     "PAYPAL_CLIENT_ID": "",
     "PAYPAL_SECRET": "",

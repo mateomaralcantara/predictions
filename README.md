@@ -29,9 +29,28 @@ npm run api:dev        # API en http://localhost:8000 (docs en /docs)
 npm run dev            # Web en http://localhost:5174
 ```
 
-¿Algo no arranca? Ejecuta `npm run doctor`: revisa Python, las dependencias, el `.env`, los puertos y los datos, arranca la API en memoria y dice qué falla.
+### Configuración: un solo `.env.local`
 
-Funciona sin configurar nada: usa SQLite para las cuentas y los CSV para el histórico. Sin Gemini ni OpenAI, el chat responde con reglas locales; sin PayPal, los planes aparecen como «Próximamente». Para configurar algo, copia `apps/api/.env.example` a `apps/api/.env`.
+Todas las claves van en **`.env.local`**, en la raíz del repo. Lo leen la API y la web, y Git lo ignora. La plantilla comentada es [`.env.example`](.env.example).
+
+```bash
+npm run setup     # asistente: pide cada clave sin mostrarla, genera SECRET_KEY y prueba Gemini y la base de datos
+```
+
+| Variable | Para qué | Dónde conseguirla |
+|---|---|---|
+| `GEMINI_API_KEY` | Asistente con Gemini (tiene prioridad sobre OpenAI) | [Google AI Studio](https://aistudio.google.com/app/apikey) |
+| `SUPABASE_DB_URL` | Cuentas, pagos e histórico en Supabase (PostgreSQL) | Supabase → Project Settings → Database → Connection string (URI) |
+| `PAYPAL_CLIENT_ID` / `PAYPAL_SECRET` | Cobro de planes | [PayPal Developer](https://developer.paypal.com/dashboard/applications) |
+| `SECRET_KEY` | Firma de sesiones (`npm run setup` la genera) | — |
+
+Prioridad: variables del sistema > `.env.local` > `apps/api/.env.local` > `apps/api/.env` (heredado) > `.env`. Solo las variables con prefijo `VITE_` llegan al navegador: nunca pongas secretos con ese prefijo.
+
+Supabase funciona con la conexión directa, el *session pooler* (5432) y el *transaction pooler* (6543). La app activa SSL y desactiva las sentencias preparadas cuando hacen falta. Para subir el histórico a Supabase: `npm run cli -- importar-csv`.
+
+¿Algo no arranca? Ejecuta `npm run doctor`: revisa Python, las dependencias, qué archivo `.env` se usa, los puertos y los datos; prueba la clave de Gemini y la conexión a la base de datos; arranca la API en memoria y te dice qué falla.
+
+Funciona sin configurar nada: usa SQLite para las cuentas y los CSV para el histórico. Sin Gemini ni OpenAI, el chat responde con reglas locales; sin PayPal, los planes aparecen como «Próximamente».
 
 ## Producción con Docker
 

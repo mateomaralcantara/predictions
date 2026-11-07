@@ -12,6 +12,9 @@ import sys
 import traceback
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from checks import ocultar_url, probar_db, probar_gemini  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[1]
 API = ROOT / "apps" / "api"
 OK, MAL, AVISO = "[OK]  ", "[FALLA]", "[AVISO]"
@@ -53,14 +56,17 @@ def main() -> int:
         f"Faltan módulos: {', '.join(faltan)} -> python -m pip install -r requirements-dev.txt",
     )
 
-    for env_file in (API / ".env", ROOT / ".env"):
-        if env_file.exists():
-            nombres = [
-                line.split("=", 1)[0].strip()
-                for line in env_file.read_text(encoding="utf-8", errors="replace").splitlines()
-                if "=" in line and not line.strip().startswith("#") and line.split("=", 1)[1].strip()
-            ]
-            print(f"{AVISO} Se usa {env_file.relative_to(ROOT)} con: {', '.join(nombres) or '(vacío)'}")
+    archivos = [ROOT / ".env.local", API / ".env.local", API / ".env", ROOT / ".env"]
+    hay = [f for f in archivos if f.exists()]
+    check(bool(hay), "", "No hay .env.local: ejecuta  npm run setup  para crearlo", grave=False)
+    for i, env_file in enumerate(hay):
+        nombres = [
+            line.split("=", 1)[0].strip()
+            for line in env_file.read_text(encoding="utf-8-sig", errors="replace").splitlines()
+            if "=" in line and not line.strip().startswith("#") and line.split("=", 1)[1].strip()
+        ]
+        rol = "principal" if i == 0 else "secundario (lo que ya defina el principal se ignora)"
+        print(f"{AVISO if i else OK} {env_file.relative_to(ROOT)} [{rol}]: {', '.join(nombres) or '(vacío)'}")
 
     for puerto in (8000, 5174):
         with socket.socket() as s:
@@ -84,8 +90,13 @@ def main() -> int:
         print(
             f"{OK} Configuración cargada (entorno: {s.environment}, IA: {s.ia_proveedor or 'ninguna'}, pagos: {'sí' if s.paypal_enabled else 'no'})"
         )
-        db = s.app_database_url.split("@")[-1] if "@" in s.app_database_url else s.app_database_url
-        print(f"       Base de datos de la app: {db}")
+        print(f"       Base de datos de la app: {ocultar_url(s.app_database_url)}")
+        if s.gemini_api_key:
+            ok, msg = probar_gemini(s.gemini_api_key, s.gemini_model)
+            check(ok, f"Gemini: {msg}", f"Gemini: {msg}")
+        if s.database_url:
+            ok, msg = probar_db(s.database_url)
+            check(ok, f"Base de datos: {msg}", f"No conecta con {ocultar_url(s.database_url)}: {msg}", grave=False)
         for nombre, ruta in (("Resultados", s.resultados_csv), ("Loto", s.loto_csv), ("SuperKino", s.superkino_csv)):
             check(ruta.exists(), f"CSV {nombre}: {ruta.relative_to(ROOT)}", f"No existe el CSV {nombre}: {ruta}")
     except Exception:  # noqa: BLE001

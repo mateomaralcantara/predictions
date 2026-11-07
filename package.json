@@ -19,6 +19,7 @@
     "loto:watch": "powershell -ExecutionPolicy Bypass -File ./scripts/monorepo.ps1 loto-watch",
     "repo:doctor": "powershell -ExecutionPolicy Bypass -File ./scripts/monorepo.ps1 doctor",
     "repo:status": "powershell -ExecutionPolicy Bypass -File ./scripts/monorepo.ps1 status",
+    "setup": "python scripts/configurar_env.py",
     "start": "npm --workspace apps/web run start",
     "superkino:all": "powershell -ExecutionPolicy Bypass -File ./scripts/monorepo.ps1 superkino-all",
     "superkino:predict": "powershell -ExecutionPolicy Bypass -File ./scripts/monorepo.ps1 superkino-predict",
