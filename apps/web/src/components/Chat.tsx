@@ -69,7 +69,7 @@ export default function Chat() {
         {enviando && <div className="text-xs text-slate-500">Pensando…</div>}
       </div>
 
-      <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
+      <div className="mb-3 flex flex-wrap gap-2">
         {SUGERENCIAS.map((s) => (
           <button
             key={s}

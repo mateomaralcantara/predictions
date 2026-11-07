@@ -173,7 +173,7 @@ function Contenido({ d }: { d: DetalleLoteria }) {
     <div className="space-y-6">
       <ResumenTarjetas r={d.resumen} />
 
-      <div className="grid gap-6 xl:grid-cols-5">
+      <div className="grid items-start gap-6 xl:grid-cols-5">
         <div className="xl:col-span-3">
           <Pronostico nombre={d.nombre} />
         </div>
