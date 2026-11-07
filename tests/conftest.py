@@ -39,13 +39,14 @@ os.environ.update(TEST_ENV)
 
 
 def _reset_caches() -> None:
-    from app import deps, predictions
+    from app import deps, predictions, tradicional
     from app.config import get_settings
     from app.ratelimit import limiter
 
     get_settings.cache_clear()
     deps.get_repository.cache_clear()
     predictions.clear_cache()
+    tradicional.clear_cache()
     limiter.reset()
 
 

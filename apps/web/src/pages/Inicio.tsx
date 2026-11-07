@@ -1,11 +1,15 @@
-import { CalendarClock, Flame, Snowflake, Trophy } from "lucide-react";
+import { CalendarClock } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import Chat from "../components/Chat";
 import { LoteriaSelector } from "../components/LoteriaSelector";
-import { Async, Ball, Balls, Disclaimer, PageHeader } from "../components/ui";
-import { api, type Resumen } from "../lib/api";
+import { LoteriasGrid } from "../components/LoteriasGrid";
+import { rutaLoteria } from "../lib/rutas";
+import { ResumenTarjetas } from "../components/ResumenTarjetas";
+import { Async, Balls, Disclaimer, PageHeader } from "../components/ui";
+import { api } from "../lib/api";
 import { dos, fecha, miles } from "../lib/format";
 import { useApi } from "../lib/useApi";
+import { Link, useNavigate } from "react-router-dom";
 import { useLoteria } from "../lib/useLoteria";
 import { useTitle } from "../lib/useTitle";
 
@@ -14,60 +18,9 @@ function diasDesde(iso?: string) {
   return Math.floor((Date.now() - new Date(`${iso}T00:00:00Z`).getTime()) / 86_400_000);
 }
 
-function Tarjetas({ r }: { r: Resumen }) {
-  if (!r.ultimo_sorteo) return <p className="text-sm text-slate-400">Sin sorteos para esta selección.</p>;
-  return (
-    <div className="grid gap-4 md:grid-cols-3">
-      <div className="card">
-        <p className="card-title flex items-center gap-2">
-          <Trophy className="h-4 w-4 text-emerald-400" aria-hidden /> Último sorteo
-        </p>
-        <div className="mt-3">
-          <Balls nums={r.ultimo_sorteo.numeros} size="lg" />
-        </div>
-        <p className="mt-3 text-sm text-slate-400">
-          {r.ultimo_sorteo.loteria} · {fecha(r.ultimo_sorteo.fecha)}
-        </p>
-      </div>
-      <div className="card">
-        <p className="card-title flex items-center gap-2">
-          <Flame className="h-4 w-4 text-amber-400" aria-hidden /> Más frecuente ({r.dias_recientes} días)
-        </p>
-        {r.mas_frecuente_reciente ? (
-          <>
-            <div className="mt-3">
-              <Ball n={r.mas_frecuente_reciente.numero} tone="amber" size="lg" />
-            </div>
-            <p className="mt-3 text-sm text-slate-400">{r.mas_frecuente_reciente.apariciones} apariciones</p>
-          </>
-        ) : (
-          <p className="mt-3 text-sm text-slate-500">—</p>
-        )}
-      </div>
-      <div className="card">
-        <p className="card-title flex items-center gap-2">
-          <Snowflake className="h-4 w-4 text-sky-400" aria-hidden /> Más atrasado
-        </p>
-        {r.mas_atrasado ? (
-          <>
-            <div className="mt-3">
-              <Ball n={r.mas_atrasado.numero} tone="sky" size="lg" />
-            </div>
-            <p className="mt-3 text-sm text-slate-400">
-              {miles(r.mas_atrasado.sorteos_sin_salir)} sorteos sin salir
-              {r.mas_atrasado.ultima_fecha && ` · desde ${fecha(r.mas_atrasado.ultima_fecha)}`}
-            </p>
-          </>
-        ) : (
-          <p className="mt-3 text-sm text-slate-500">—</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
 export default function Inicio() {
-  const [loteria, setLoteria] = useLoteria();
+  const [loteria] = useLoteria();
+  const navigate = useNavigate();
   const resumen = useApi(() => api.resumen(loteria || undefined), [loteria]);
   const top = useApi(() => api.top(loteria || undefined, 10), [loteria]);
   const ultimos = useApi(() => api.ultimos(loteria || undefined, 8), [loteria]);
@@ -80,8 +33,10 @@ export default function Inicio() {
         title="Resultados y estadísticas"
         subtitle="Histórico de las loterías dominicanas: qué salió, qué se repite y qué lleva tiempo sin salir."
       >
-        <LoteriaSelector value={loteria} onChange={setLoteria} />
+        <LoteriaSelector value={loteria} onChange={(v) => v && navigate(rutaLoteria(v))} />
       </PageHeader>
+
+      <LoteriasGrid />
 
       {resumen.data && atraso > 7 && (
         <div className="mb-4 flex items-center gap-2 rounded-xl border border-sky-400/20 bg-sky-400/5 p-3 text-sm text-sky-100/80">
@@ -92,7 +47,7 @@ export default function Inicio() {
       )}
 
       <Async state={resumen} loadingLabel="Cargando resumen…">
-        {(r) => <Tarjetas r={r} />}
+        {(r) => <ResumenTarjetas r={r} />}
       </Async>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-5">
@@ -134,12 +89,17 @@ export default function Inicio() {
             {(rows) => (
               <ul className="divide-y divide-white/5">
                 {rows.map((s) => (
-                  <li key={`${s.fecha}-${s.loteria}`} className="flex items-center justify-between gap-3 py-2.5">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-slate-200">{s.loteria}</p>
-                      <p className="text-xs text-slate-500">{fecha(s.fecha)}</p>
-                    </div>
-                    <Balls nums={s.numeros} size="sm" />
+                  <li key={`${s.fecha}-${s.loteria}`}>
+                    <Link
+                      to={rutaLoteria(s.loteria)}
+                      className="-mx-2 flex items-center justify-between gap-3 rounded-lg px-2 py-2.5 hover:bg-white/5"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-slate-200">{s.loteria}</p>
+                        <p className="text-xs text-slate-500">{fecha(s.fecha)}</p>
+                      </div>
+                      <Balls nums={s.numeros} size="sm" />
+                    </Link>
                   </li>
                 ))}
               </ul>

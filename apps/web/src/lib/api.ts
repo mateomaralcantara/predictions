@@ -133,6 +133,42 @@ export interface Resumen {
   mas_atrasado: Atrasado | null;
 }
 
+export interface CeldaMapa {
+  numero: number;
+  apariciones: number;
+  primer: number;
+  segundo: number;
+  tercero: number;
+  ultima_fecha: string | null;
+  sorteos_sin_salir: number;
+}
+
+export interface DetalleLoteria {
+  nombre: string;
+  resumen: Resumen;
+  ultimos: Sorteo[];
+  top: Frecuencia[];
+  atrasados: Atrasado[];
+  combinaciones: Combinacion[];
+  pales: { pale: number[]; apariciones: number }[];
+  posiciones: Record<"primer" | "segundo" | "tercero", Frecuencia[]>;
+  mapa: CeldaMapa[];
+  dias_semana: { dia: string; sorteos: number }[];
+}
+
+export interface PronosticoLoteria {
+  loteria: string;
+  basado_en: { sorteos: number; hasta: string };
+  jugadas: { numeros: number[]; pales: number[][] }[];
+  calientes: number[];
+  frios: number[];
+  aviso: string;
+  solicitadas: number;
+  max_jugadas: number;
+  limitado: boolean;
+  nivel: number;
+}
+
 export interface InfoNumero {
   numero: number;
   total: number;
@@ -234,6 +270,9 @@ export const api = {
     request<Combinacion[]>("/api/estadisticas/combinaciones", { query: { loteria, limite } }),
   numero: (numero: number, loteria?: string, limite = 20) =>
     request<InfoNumero>(`/api/estadisticas/numero/${numero}`, { query: { loteria, limite } }),
+  detalleLoteria: (nombre: string) => request<DetalleLoteria>(`/api/loterias/${encodeURIComponent(nombre)}`),
+  pronosticoLoteria: (nombre: string, jugadas = 5) =>
+    request<PronosticoLoteria>(`/api/loterias/${encodeURIComponent(nombre)}/pronostico`, { query: { jugadas } }),
   prediccion: (juego: "loto" | "superkino", jugadas = 5) =>
     request<Prediccion>(`/api/predicciones/${juego}`, { query: { jugadas } }),
   chat: (pregunta: string) =>

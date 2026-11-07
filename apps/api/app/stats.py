@@ -124,3 +124,53 @@ def resumen(rows: Sequence[Resultado], dias_recientes: int = 30) -> dict:
         "mas_frecuente_reciente": top[0] if top else None,
         "mas_atrasado": atrasado[0] if atrasado else None,
     }
+
+
+def de_loteria(rows: Iterable[Resultado], nombre: str) -> list[Resultado]:
+    """Sorteos de una lotería por nombre exacto (ignorando mayúsculas y acentos)."""
+    objetivo = normalizar(nombre)
+    return [r for r in rows if normalizar(r.loteria) == objetivo]
+
+
+def mapa_numeros(rows: Sequence[Resultado]) -> list[dict]:
+    """Para cada número 00-99: apariciones totales y por premio, última fecha y atraso."""
+    ordenados = sorted(rows, key=lambda r: (r.fecha, r.loteria))
+    total = len(ordenados)
+    info = {n: {"numero": n, "apariciones": 0, "primer": 0, "segundo": 0, "tercero": 0, "_ult": None}
+            for n in range(NUMERO_MIN, NUMERO_MAX + 1)}  # fmt: skip
+    for i, r in enumerate(ordenados):
+        for pos, n in zip(("primer", "segundo", "tercero"), r.numeros, strict=True):
+            if n in info:
+                info[n]["apariciones"] += 1
+                info[n][pos] += 1
+                info[n]["_ult"] = i
+    out = []
+    for d in info.values():
+        idx = d.pop("_ult")
+        d["ultima_fecha"] = ordenados[idx].fecha.isoformat() if idx is not None else None
+        d["sorteos_sin_salir"] = total - 1 - idx if idx is not None else total
+        out.append(d)
+    return out
+
+
+def top_por_posicion(rows: Sequence[Resultado], cantidad: int = 5) -> dict[str, list[dict]]:
+    out = {}
+    for i, pos in enumerate(("primer", "segundo", "tercero")):
+        conteo = Counter(r.numeros[i] for r in rows)
+        out[pos] = [{"numero": n, "apariciones": c} for n, c in conteo.most_common(cantidad)]
+    return out
+
+
+def pales(rows: Sequence[Resultado], cantidad: int = 10) -> list[dict]:
+    """Parejas (palé) que más han salido juntas en un mismo sorteo, sin importar el orden."""
+    conteo: Counter[tuple[int, int]] = Counter()
+    for r in rows:
+        a, b, c = sorted(r.numeros)
+        conteo.update({p for p in ((a, b), (a, c), (b, c)) if p[0] != p[1]})
+    return [{"pale": list(p), "apariciones": n} for p, n in conteo.most_common(cantidad)]
+
+
+def por_dia_semana(rows: Sequence[Resultado]) -> list[dict]:
+    dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+    conteo = Counter(r.fecha.weekday() for r in rows)
+    return [{"dia": dias[i], "sorteos": conteo.get(i, 0)} for i in range(7)]

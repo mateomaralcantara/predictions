@@ -16,7 +16,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from . import __version__
 from .config import get_settings
 from .deps import get_repository
-from .routers import admin, chat, cuenta, estadisticas, pagos, predicciones
+from .routers import admin, chat, cuenta, estadisticas, loterias, pagos, predicciones
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
@@ -98,7 +98,15 @@ def create_app() -> FastAPI:
             "entorno": settings.environment,
         }
 
-    for r in (estadisticas.router, chat.router, predicciones.router, cuenta.router, pagos.router, admin.router):
+    for r in (
+        estadisticas.router,
+        loterias.router,
+        chat.router,
+        predicciones.router,
+        cuenta.router,
+        pagos.router,
+        admin.router,
+    ):
         app.include_router(r)
     return app
 

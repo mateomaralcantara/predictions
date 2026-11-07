@@ -89,3 +89,40 @@ describe("Predicciones", () => {
     expect(screen.getByRole("link", { name: /crear cuenta/i })).toHaveAttribute("href", "/entrar?siguiente=/planes");
   });
 });
+
+describe("LoteriaDetalle", () => {
+  it("carga el detalle de la lotería de la URL y su pronóstico", async () => {
+    const { default: LoteriaDetalle } = await import("./LoteriaDetalle");
+    const mapa = Array.from({ length: 100 }, (_, n) => ({
+      numero: n, apariciones: n, primer: n, segundo: 0, tercero: 0, ultima_fecha: null, sorteos_sin_salir: 100 - n,
+    }));
+    const spy = mockFetch((url) => {
+      if (url.pathname.endsWith("/pronostico"))
+        return {
+          body: {
+            loteria: "Lotería Nacional", basado_en: { sorteos: 100, hasta: "2025-06-29" },
+            jugadas: [{ numeros: [14, 53, 95], pales: [[14, 53], [14, 95], [53, 95]] }],
+            calientes: [1, 2, 3, 4, 5], frios: [6, 7, 8, 9, 10], aviso: "Heurístico",
+            solicitadas: 5, max_jugadas: 2, limitado: true, nivel: 0,
+          },
+        };
+      if (url.pathname.endsWith("/api/loterias")) return { body: [] };
+      if (url.pathname.includes("/api/loterias/"))
+        return {
+          body: {
+            nombre: "Lotería Nacional",
+            resumen: { total_sorteos: 100, desde: "2010-01-01", hasta: "2025-06-29", ultimo_sorteo: { fecha: "2025-06-29", loteria: "Lotería Nacional", numeros: [92, 92, 41] }, dias_recientes: 30, mas_frecuente_reciente: { numero: 11, apariciones: 4 }, mas_atrasado: { numero: 12, sorteos_sin_salir: 144, ultima_fecha: "2021-06-24" } },
+            ultimos: [], top: [], atrasados: [], combinaciones: [], pales: [{ pale: [30, 93], apariciones: 9 }],
+            posiciones: { primer: [], segundo: [], tercero: [] }, mapa, dias_semana: [{ dia: "Lunes", sorteos: 10 }],
+          },
+        };
+      return undefined;
+    });
+    renderRuta(<LoteriaDetalle />, { ruta: "/loteria/Loter%C3%ADa%20Nacional", path: "/loteria/:nombre" });
+    expect(await screen.findByRole("heading", { level: 1, name: "Lotería Nacional" })).toBeInTheDocument();
+    expect(await screen.findByText(/Palés: 14-53 · 14-95 · 53-95/)).toBeInTheDocument();
+    expect(screen.getByText(/Mostrando 1 de 5 jugadas/)).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /^\d\d$/ })).toHaveLength(100);
+    expect(spy.mock.calls.some(([u]) => String(u).includes("/api/loterias/Loter%C3%ADa%20Nacional"))).toBe(true);
+  });
+});
