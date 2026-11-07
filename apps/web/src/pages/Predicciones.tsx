@@ -1,9 +1,12 @@
 import { Sparkles } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
+import { Mejorar } from "../components/Mejorar";
 import { Async, Balls, Disclaimer, PageHeader } from "../components/ui";
 import { api, type Prediccion } from "../lib/api";
 import { fecha, miles } from "../lib/format";
+import { useAuth } from "../lib/auth";
 import { useApi } from "../lib/useApi";
+import { useTitle } from "../lib/useTitle";
 
 const JUEGOS = [
   { id: "loto", label: "Loto LEIDSA" },
@@ -34,6 +37,13 @@ function Resultado({ p }: { p: Prediccion }) {
       </aside>
 
       <section className="lg:col-span-2" aria-label="Jugadas sugeridas">
+        {p.limitado && (
+          <div className="mb-3">
+            <Mejorar>
+              Mostrando {p.jugadas.length} de {p.solicitadas} jugadas. Tu plan permite hasta {p.max_jugadas} por juego.
+            </Mejorar>
+          </div>
+        )}
         <ol className="space-y-3">
           {p.jugadas.map((j, i) => (
             <li key={j.numeros.join("-")} className="card flex flex-wrap items-center gap-4 p-4">
@@ -67,7 +77,9 @@ export default function Predicciones() {
   const [params, setParams] = useSearchParams();
   const juego: JuegoId = params.get("juego") === "superkino" ? "superkino" : "loto";
   const jugadas = Math.min(10, Math.max(1, Number(params.get("jugadas")) || 5));
-  const state = useApi(() => api.prediccion(juego, jugadas), [juego, jugadas]);
+  const { usuario } = useAuth();
+  const state = useApi(() => api.prediccion(juego, jugadas), [juego, jugadas, usuario?.nivel]);
+  useTitle("Jugadas sugeridas");
 
   const set = (k: string, v: string) =>
     setParams(

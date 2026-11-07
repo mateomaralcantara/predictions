@@ -1,4 +1,5 @@
 import react from "@vitejs/plugin-react";
+/// <reference types="vitest/config" />
 import { defineConfig, loadEnv } from "vite";
 
 export default defineConfig(({ mode }) => {
@@ -14,6 +15,11 @@ export default defineConfig(({ mode }) => {
         "/backend": { target, changeOrigin: true, rewrite: (p) => p.replace(/^\/backend/, "") },
         "/ws": { target, ws: true, changeOrigin: true },
       },
+    },
+    test: {
+      environment: "jsdom",
+      setupFiles: ["./src/test/setup.ts"],
+      css: false,
     },
     build: {
       rollupOptions: {

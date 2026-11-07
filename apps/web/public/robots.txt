@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /cuenta
+Disallow: /pago/
+Disallow: /entrar

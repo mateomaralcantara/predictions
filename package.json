@@ -23,11 +23,12 @@
     "superkino:predict:py": "python packages/games/superkino/predictor.py --csv data/superkino/superkino_historico.csv",
     "superkino:update": "powershell -ExecutionPolicy Bypass -File ./scripts/monorepo.ps1 superkino-update",
     "superkino:watch": "powershell -ExecutionPolicy Bypass -File ./scripts/monorepo.ps1 superkino-watch",
-    "test": "python -m pytest",
+    "test": "python -m pytest && npm run web:test",
     "web:build": "npm --workspace apps/web run build",
     "web:dev": "npm --workspace apps/web run dev",
     "web:install": "npm --workspace apps/web install",
-    "web:lint": "npm --workspace apps/web run lint"
+    "web:lint": "npm --workspace apps/web run lint",
+    "web:test": "npm --workspace apps/web run test"
   },
   "engines": {
     "node": ">=20"

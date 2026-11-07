@@ -1,6 +1,7 @@
-import { Menu, X } from "lucide-react";
+import { Menu, UserRound, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { useAuth } from "../lib/auth";
 
 const LINKS = [
   { to: "/", label: "Inicio" },
@@ -18,6 +19,10 @@ function linkClass({ isActive }: { isActive: boolean }) {
 export default function Layout() {
   const [abierto, setAbierto] = useState(false);
   const { pathname } = useLocation();
+  const { usuario, cargando } = useAuth();
+  const cuenta = usuario
+    ? { to: "/cuenta", label: usuario.nombre.split(" ")[0] }
+    : { to: `/entrar?siguiente=${encodeURIComponent(pathname)}`, label: "Entrar" };
 
   useEffect(() => {
     setAbierto(false);
@@ -35,12 +40,26 @@ export default function Layout() {
             <img src="/favicon.svg" alt="" className="h-7 w-7" />
             Predictions <span className="text-emerald-400">RD</span>
           </NavLink>
-          <nav className="hidden gap-1 sm:flex" aria-label="Principal">
+          <nav className="hidden items-center gap-1 sm:flex" aria-label="Principal">
             {LINKS.map((l) => (
               <NavLink key={l.to} to={l.to} end={l.to === "/"} className={linkClass}>
                 {l.label}
               </NavLink>
             ))}
+            {!cargando && (
+              <NavLink
+                to={cuenta.to}
+                className="ml-2 inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-white/5"
+              >
+                <UserRound className="h-4 w-4" aria-hidden />
+                {cuenta.label}
+                {usuario && usuario.nivel > 0 && (
+                  <span className="rounded bg-amber-400/20 px-1.5 text-[10px] font-bold uppercase text-amber-200">
+                    {usuario.plan.nombre}
+                  </span>
+                )}
+              </NavLink>
+            )}
           </nav>
           <button
             className="btn-ghost p-2 sm:hidden"
@@ -58,6 +77,9 @@ export default function Layout() {
                 {l.label}
               </NavLink>
             ))}
+            <NavLink to={cuenta.to} className={linkClass}>
+              {usuario ? "Mi cuenta" : "Entrar"}
+            </NavLink>
           </nav>
         )}
       </header>

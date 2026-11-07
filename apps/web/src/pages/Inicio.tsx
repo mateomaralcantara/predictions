@@ -7,6 +7,7 @@ import { api, type Resumen } from "../lib/api";
 import { dos, fecha, miles } from "../lib/format";
 import { useApi } from "../lib/useApi";
 import { useLoteria } from "../lib/useLoteria";
+import { useTitle } from "../lib/useTitle";
 
 function diasDesde(iso?: string) {
   if (!iso) return 0;
@@ -71,6 +72,7 @@ export default function Inicio() {
   const top = useApi(() => api.top(loteria || undefined, 10), [loteria]);
   const ultimos = useApi(() => api.ultimos(loteria || undefined, 8), [loteria]);
   const atraso = diasDesde(resumen.data?.hasta);
+  useTitle();
 
   return (
     <>

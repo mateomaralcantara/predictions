@@ -38,4 +38,5 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm --workspace apps/web run lint
+      - run: npm --workspace apps/web run test
       - run: npm --workspace apps/web run build

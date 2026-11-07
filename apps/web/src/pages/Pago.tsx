@@ -1,8 +1,10 @@
 import { CheckCircle2, XCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { ErrorBox, Loading } from "../components/ui";
 import { api, type Captura } from "../lib/api";
+import { useAuth } from "../lib/auth";
+import { useTitle } from "../lib/useTitle";
 
 export function PagoExito() {
   const [params] = useSearchParams();
@@ -10,17 +12,24 @@ export function PagoExito() {
   const [captura, setCaptura] = useState<Captura>();
   const [error, setError] = useState<string>();
   const iniciado = useRef(false);
+  const { usuario, cargando, setUsuario } = useAuth();
+  useTitle("Pago");
 
   useEffect(() => {
     // StrictMode monta dos veces en desarrollo: capturar una sola vez.
-    if (!token || iniciado.current) return;
+    if (!token || !usuario || iniciado.current) return;
     iniciado.current = true;
     api
       .capturarOrden(token)
-      .then(setCaptura)
+      .then((c) => {
+        setCaptura(c);
+        if (c.usuario) setUsuario(c.usuario);
+      })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "No se pudo confirmar el pago."));
-  }, [token]);
+  }, [token, usuario, setUsuario]);
 
+  if (cargando) return <Loading />;
+  if (!usuario) return <Navigate to={`/entrar?siguiente=${encodeURIComponent(`/pago/exito?token=${token ?? ""}`)}`} replace />;
   if (!token) return <ErrorBox message="Falta el identificador de la orden de PayPal." />;
 
   return (
@@ -37,6 +46,11 @@ export function PagoExito() {
             {captura.plan ? `Plan ${captura.plan.nombre}` : "Tu plan"} · {captura.monto} {captura.moneda}
           </p>
           <p className="mt-1 text-xs text-slate-500">Orden {captura.id}</p>
+          {captura.usuario?.suscripcion_vence && (
+            <p className="mt-1 text-sm text-slate-400">
+              Activo hasta el {new Date(captura.usuario.suscripcion_vence).toLocaleDateString("es-DO")}
+            </p>
+          )}
           <Link to="/predicciones" className="btn-primary mt-6">
             Ver predicciones
           </Link>
@@ -47,6 +61,7 @@ export function PagoExito() {
 }
 
 export function PagoCancelado() {
+  useTitle("Pago cancelado");
   return (
     <div className="card mx-auto max-w-lg text-center">
       <XCircle className="mx-auto h-12 w-12 text-slate-400" aria-hidden />
@@ -60,6 +75,7 @@ export function PagoCancelado() {
 }
 
 export function NoEncontrado() {
+  useTitle("Página no encontrada");
   return (
     <div className="card mx-auto max-w-lg text-center">
       <h1 className="text-2xl font-bold text-white">Página no encontrada</h1>

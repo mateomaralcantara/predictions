@@ -2,10 +2,13 @@ import { Search } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { LoteriaSelector } from "../components/LoteriaSelector";
+import { Mejorar } from "../components/Mejorar";
 import { Async, Ball, Balls, PageHeader } from "../components/ui";
 import { api } from "../lib/api";
 import { dos, fecha, miles } from "../lib/format";
+import { useAuth } from "../lib/auth";
 import { useApi } from "../lib/useApi";
+import { useTitle } from "../lib/useTitle";
 import { useLoteria } from "../lib/useLoteria";
 
 function BuscadorNumero({ loteria }: { loteria: string }) {
@@ -15,9 +18,10 @@ function BuscadorNumero({ loteria }: { loteria: string }) {
   const numero = inicial === "" ? null : Number(inicial);
   const valido = numero !== null && Number.isInteger(numero) && numero >= 0 && numero <= 99;
 
+  const { usuario } = useAuth();
   const info = useApi(
-    () => (valido ? api.numero(numero, loteria || undefined, 15) : Promise.resolve(undefined)),
-    [numero, loteria, valido],
+    () => (valido ? api.numero(numero, loteria || undefined, 500) : Promise.resolve(undefined)),
+    [numero, loteria, valido, usuario?.nivel],
   );
 
   function onSubmit(e: FormEvent) {
@@ -81,6 +85,13 @@ function BuscadorNumero({ loteria }: { loteria: string }) {
                       </div>
                     ))}
                   </dl>
+                  {d.limitado && (
+                    <div className="mt-4">
+                      <Mejorar>
+                        Ves las últimas {d.max_historial} de {d.total.toLocaleString("es-DO")} apariciones.
+                      </Mejorar>
+                    </div>
+                  )}
                   {d.sorteos.length > 0 && (
                     <ul className="mt-4 max-h-72 divide-y divide-white/5 overflow-y-auto">
                       {d.sorteos.map((s) => (
@@ -107,6 +118,7 @@ export default function Explorar() {
   const [loteria, setLoteria] = useLoteria();
   const atrasados = useApi(() => api.atrasados(loteria || undefined, 10), [loteria]);
   const combinaciones = useApi(() => api.combinaciones(loteria || undefined, 8), [loteria]);
+  useTitle("Explorar el histórico");
 
   return (
     <>
