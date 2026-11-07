@@ -4,8 +4,8 @@ from conftest import ROOT
 from packages.games.loto import predictor as loto
 from packages.games.superkino import predictor as superkino
 
-LOTO_CSV = ROOT / "apps" / "api" / "leidsa" / "lotto" / "loto_leidsa.csv"
-SK_CSV = ROOT / "apps" / "api" / "leidsa" / "superkino" / "superkino_historico.csv"
+LOTO_CSV = ROOT / "data" / "loto" / "loto_historico.csv"
+SK_CSV = ROOT / "data" / "superkino" / "superkino_historico.csv"
 
 
 def test_loto_load_csv_valida_reglas():

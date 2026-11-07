@@ -31,8 +31,8 @@ TEST_ENV = {
     "ADMIN_TOKEN": "",
     "FRONTEND_URL": "http://localhost:5174",
     "RESULTADOS_CSV": str(FIXTURES / "resultados.csv"),
-    "LOTO_CSV": str(ROOT / "apps" / "api" / "leidsa" / "lotto" / "loto_leidsa.csv"),
-    "SUPERKINO_CSV": str(ROOT / "apps" / "api" / "leidsa" / "superkino" / "superkino_historico.csv"),
+    "LOTO_CSV": str(ROOT / "data" / "loto" / "loto_historico.csv"),
+    "SUPERKINO_CSV": str(ROOT / "data" / "superkino" / "superkino_historico.csv"),
 }
 os.environ.update(TEST_ENV)
 

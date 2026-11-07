@@ -16,8 +16,6 @@ htmlcov/
 !.env.example
 
 # Runtime lottery data (mutable; not source code)
-data/**/superkino_historico.csv
-data/**/loto_historico.csv
 data/**/*.csv.bak
 data/**/*.csv.bak_*
 **/backups/

@@ -147,17 +147,14 @@ def get_settings() -> Settings:
         resultados_csv=_path_from_env(
             "RESULTADOS_CSV",
             REPO_ROOT / "data" / "tradicionales" / "resultados_tradicionales.csv",
-            API_DIR / "loterias" / "resultados_tradicionales_2010_a_hoy.csv",
         ),
         loto_csv=_path_from_env(
             "LOTO_CSV",
             REPO_ROOT / "data" / "loto" / "loto_historico.csv",
-            API_DIR / "leidsa" / "lotto" / "loto_leidsa.csv",
         ),
         superkino_csv=_path_from_env(
             "SUPERKINO_CSV",
             REPO_ROOT / "data" / "superkino" / "superkino_historico.csv",
-            API_DIR / "leidsa" / "superkino" / "superkino_historico.csv",
         ),
         cors_origins=list(dict.fromkeys(origins)),
     )
