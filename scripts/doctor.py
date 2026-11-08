@@ -13,7 +13,14 @@ import traceback
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from checks import ocultar_url, probar_db, probar_gemini  # noqa: E402
+from checks import (  # noqa: E402
+    ocultar_url,
+    probar_db,
+    probar_gemini,
+    probar_supabase,
+    tipo_clave_supabase,
+    variables_vite_peligrosas,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 API = ROOT / "apps" / "api"
@@ -94,6 +101,7 @@ def main() -> int:
         if s.gemini_api_key:
             ok, msg = probar_gemini(s.gemini_api_key, s.gemini_model)
             check(ok, f"Gemini: {msg}", f"Gemini: {msg}")
+        revisar_supabase()
         if s.database_url:
             ok, msg = probar_db(s.database_url)
             check(ok, f"Base de datos: {msg}", f"No conecta con {ocultar_url(s.database_url)}: {msg}", grave=False)
@@ -126,6 +134,39 @@ def main() -> int:
     except Exception:  # noqa: BLE001
         check(False, "", "La API NO arranca. Error:\n" + traceback.format_exc())
     return resumen()
+
+
+def revisar_supabase() -> None:
+    url = os.environ.get("SUPABASE_URL", "").strip()
+    pub = (os.environ.get("SUPABASE_PUBLISHABLE_KEY") or os.environ.get("SUPABASE_ANON_KEY") or "").strip()
+    sec = (os.environ.get("SUPABASE_SECRET_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or "").strip()
+    peligrosas = variables_vite_peligrosas({k: v for k, v in os.environ.items()})
+    check(
+        not peligrosas,
+        "Ningún secreto expuesto al navegador (VITE_*)",
+        f"Estas variables VITE_ parecen secretas y llegarían al navegador: {', '.join(peligrosas)}",
+    )
+    if not (url or pub or sec):
+        print(f"{AVISO} Supabase: SUPABASE_URL y claves no definidas (opcional)")
+        return
+    check(bool(url), f"SUPABASE_URL: {url}", "Falta SUPABASE_URL (https://<proyecto>.supabase.co)")
+    for nombre, valor, esperado in (
+        ("publishable/anon", pub, ("publishable", "legacy")),
+        ("secret/service_role", sec, ("secret", "legacy")),
+    ):
+        if not valor:
+            print(f"{AVISO} Supabase: clave {nombre} no definida")
+            continue
+        tipo = tipo_clave_supabase(valor)
+        if not check(
+            tipo in esperado,
+            f"Clave {nombre}: formato correcto ({tipo}, …{valor[-4:]})",
+            f"La clave {nombre} tiene formato «{tipo}»: ¿la pegaste en la variable equivocada?",
+        ):
+            continue
+        if url:
+            ok, msg = probar_supabase(url, valor)
+            check(ok, f"Clave {nombre}: {msg}", f"Clave {nombre}: {msg}")
 
 
 def resumen() -> int:

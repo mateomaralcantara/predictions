@@ -1,8 +1,8 @@
 import argparse
 import itertools
 from collections import Counter, defaultdict
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -11,7 +11,7 @@ import pandas as pd
 # Carga robusta del histórico
 # ---------------------------------
 
-def cargar_historico(csv_path: str) -> List[List[int]]:
+def cargar_historico(csv_path: str) -> list[list[int]]:
     p = Path(csv_path)
     if not p.exists():
         return []
@@ -40,7 +40,7 @@ def cargar_historico(csv_path: str) -> List[List[int]]:
     df_num = df[cols].apply(pd.to_numeric, errors="coerce").dropna()
     vals_raw = df_num.astype(int).values.tolist()
 
-    vals: List[List[int]] = []
+    vals: list[list[int]] = []
     for comb in vals_raw:
         s = sorted(comb)
         if len(s) == 5 and len(set(s)) == 5 and all(1 <= x <= 31 for x in s):
@@ -63,16 +63,16 @@ def pesos_recencia(n: int, half_life: int) -> np.ndarray:
     return w / w.sum()
 
 
-def stats_ponderadas(historico: List[List[int]], half_life: int):
+def stats_ponderadas(historico: list[list[int]], half_life: int):
     n = len(historico)
     if n == 0:
         return Counter(), Counter(), Counter(), {}
 
     w = pesos_recencia(n, half_life)
-    fnum: Dict[int, float] = defaultdict(float)
-    fpairs: Dict[Tuple[int, int], float] = defaultdict(float)
-    ftrios: Dict[Tuple[int, int, int], float] = defaultdict(float)
-    last_seen_idx: Dict[int, int] = {}
+    fnum: dict[int, float] = defaultdict(float)
+    fpairs: dict[tuple[int, int], float] = defaultdict(float)
+    ftrios: dict[tuple[int, int, int], float] = defaultdict(float)
+    last_seen_idx: dict[int, int] = {}
 
     for i, comb in enumerate(historico):
         wi = float(w[i])
@@ -88,14 +88,14 @@ def stats_ponderadas(historico: List[List[int]], half_life: int):
     return Counter(fnum), Counter(fpairs), Counter(ftrios), last_seen_idx
 
 
-def rango_suma(historico: List[List[int]], p_low: int = 10, p_high: int = 90) -> Tuple[int, int, int]:
+def rango_suma(historico: list[list[int]], p_low: int = 10, p_high: int = 90) -> tuple[int, int, int]:
     if not historico:
         return 40, 120, 80
     s = np.array(historico).sum(axis=1)
     return int(np.percentile(s, p_low)), int(np.percentile(s, p_high)), int(np.mean(s))
 
 
-def paridad_media(historico: List[List[int]]) -> Tuple[int, int]:
+def paridad_media(historico: list[list[int]]) -> tuple[int, int]:
     if not historico:
         return 2, 3
     H_arr = np.array(historico)
@@ -104,7 +104,7 @@ def paridad_media(historico: List[List[int]]) -> Tuple[int, int]:
     return mp, 5 - mp
 
 
-def consecutivos_max(comb: List[int]) -> int:
+def consecutivos_max(comb: list[int]) -> int:
     s = sorted(comb)
     best = 1
     run = 1
@@ -117,7 +117,7 @@ def consecutivos_max(comb: List[int]) -> int:
     return best
 
 
-def ultimo_sorteo(historico: List[List[int]]) -> set:
+def ultimo_sorteo(historico: list[list[int]]) -> set:
     return set(historico[-1]) if historico else set()
 
 
@@ -126,11 +126,11 @@ def ultimo_sorteo(historico: List[List[int]]) -> set:
 # ---------------------------------
 
 def cumple_reglas(
-    comb: List[int],
-    sum_range: Optional[Tuple[int, int]],
-    target_parity: Tuple[int, int],
+    comb: list[int],
+    sum_range: tuple[int, int] | None,
+    target_parity: tuple[int, int],
     max_consec: int,
-    recent_cap_set: Optional[set] = None,
+    recent_cap_set: set | None = None,
     recent_cap_max: int = 3,
 ) -> bool:
     s = sorted(comb)
@@ -152,7 +152,7 @@ def cumple_reglas(
     return True
 
 
-def normaliza_scores(d: Dict[int, float], universe: Iterable[int]) -> Dict[int, float]:
+def normaliza_scores(d: dict[int, float], universe: Iterable[int]) -> dict[int, float]:
     vals = np.array([float(d.get(x, 0.0)) for x in universe], dtype=float)
     if vals.max() <= vals.min():
         return {x: 0.0 for x in universe}
@@ -161,10 +161,10 @@ def normaliza_scores(d: Dict[int, float], universe: Iterable[int]) -> Dict[int, 
 
 
 def construir_scores_numeros(
-    historico: List[List[int]],
+    historico: list[list[int]],
     half_life: int,
     recent_window: int,
-) -> Dict[int, float]:
+) -> dict[int, float]:
     U = list(range(1, 32))
     fnum_all, _, _, last_seen_idx = stats_ponderadas(historico, half_life)
     recent = historico[-recent_window:] if historico else []
@@ -174,7 +174,7 @@ def construir_scores_numeros(
     hot_recent = normaliza_scores(fnum_recent, U)
 
     n = len(historico)
-    gap_raw: Dict[int, float] = {}
+    gap_raw: dict[int, float] = {}
     for x in U:
         idx = last_seen_idx.get(x)
         if idx is None:
@@ -185,7 +185,7 @@ def construir_scores_numeros(
 
     last = ultimo_sorteo(historico)
 
-    scores: Dict[int, float] = {}
+    scores: dict[int, float] = {}
     for x in U:
         score = 0.55 * hot_all[x] + 0.25 * hot_recent[x] + 0.20 * gap[x]
         if x in last:
@@ -195,13 +195,13 @@ def construir_scores_numeros(
 
 
 def score_combinacion(
-    comb: List[int],
-    num_score: Dict[int, float],
+    comb: list[int],
+    num_score: dict[int, float],
     pair_w: Counter,
     trio_w: Counter,
-    historico: List[List[int]],
+    historico: list[list[int]],
     target_sum: int,
-    target_parity: Tuple[int, int],
+    target_parity: tuple[int, int],
 ) -> float:
     s = sorted(comb)
     score = sum(num_score.get(x, 0.0) for x in s)
@@ -224,7 +224,7 @@ def score_combinacion(
     return float(score)
 
 
-def diversificar(preds: List[List[int]], nueva: List[int], max_overlap: int) -> bool:
+def diversificar(preds: list[list[int]], nueva: list[int], max_overlap: int) -> bool:
     ns = set(nueva)
     return all(len(ns & set(p)) <= max_overlap for p in preds)
 
@@ -233,16 +233,16 @@ def diversificar(preds: List[List[int]], nueva: List[int], max_overlap: int) -> 
 # Generación eficiente de candidatos
 # ---------------------------------
 
-def weighted_choice_without_replacement(U: np.ndarray, W: np.ndarray, k: int, rng: np.random.Generator) -> List[int]:
+def weighted_choice_without_replacement(U: np.ndarray, W: np.ndarray, k: int, rng: np.random.Generator) -> list[int]:
     w = np.clip(W.astype(float), 1e-12, None)
     w = w / w.sum()
     return sorted(rng.choice(U, size=k, replace=False, p=w).tolist())
 
 
 def generar_candidatos(
-    historico: List[List[int]],
+    historico: list[list[int]],
     panels: int = 8,
-    seed: Optional[int] = None,
+    seed: int | None = None,
     half_life: int = 180,
     recent_window: int = 180,
     candidate_pool: int = 12000,
@@ -310,7 +310,7 @@ def generar_candidatos(
         recent_cap_max=3,
     )
 
-    scored: Dict[Tuple[int, ...], Tuple[float, str]] = {}
+    scored: dict[tuple[int, ...], tuple[float, str]] = {}
 
     for i in range(candidate_pool):
         strat_name, strat = strategies[i % len(strategies)]
@@ -336,7 +336,7 @@ def generar_candidatos(
 
     ranked = sorted(((sc, list(comb), origin) for comb, (sc, origin) in scored.items()), key=lambda x: x[0], reverse=True)
 
-    selected: List[List[int]] = []
+    selected: list[list[int]] = []
     rows = []
     for sc, comb, origin in ranked:
         if diversificar(selected, comb, max_overlap=max_overlap):

@@ -127,3 +127,52 @@ def test_setup_escribe_env_local_sin_mostrar_secretos(tmp_path, monkeypatch, cap
     v2 = setup.leer(destino)
     assert v2["GEMINI_API_KEY"] == "gem-SECRETA-1234" and "SUPABASE_DB_URL" not in v2
     assert v2["SECRET_KEY"] == valores["SECRET_KEY"] and v2["PAYPAL_BASE_URL"] == "https://api-m.paypal.com"
+
+
+@pytest.mark.parametrize(
+    ("clave", "tipo"),
+    [
+        ("sb_publishable_abc", "publishable"),
+        ("sb_secret_abc", "secret"),
+        ("eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiJ9.firma", "legacy"),
+        ("cualquier-cosa", "desconocida"),
+    ],
+)
+def test_tipo_clave_supabase(clave, tipo):
+    assert checks.tipo_clave_supabase(clave) == tipo
+
+
+@pytest.mark.parametrize(
+    ("status", "ok", "texto"), [(200, True, "aceptada"), (401, False, "rechaza"), (404, False, "no encontrado")]
+)
+def test_probar_supabase(status, ok, texto):
+    vistos = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        vistos.append(req)
+        return httpx.Response(status, json={})
+
+    res = checks.probar_supabase("https://abc.supabase.co/", "sb_publishable_x", transport=httpx.MockTransport(handler))
+    assert res[0] is ok and texto in res[1]
+    assert str(vistos[0].url) == "https://abc.supabase.co/auth/v1/settings"
+    assert vistos[0].headers["apikey"] == "sb_publishable_x"
+    assert checks.probar_supabase("http://otro.com", "k")[0] is False
+
+
+def test_detecta_secretos_en_variables_vite():
+    import base64
+
+    rol = base64.urlsafe_b64encode(b'{"role":"service_role"}').decode().rstrip("=")
+    env = {
+        "VITE_SUPABASE_URL": "https://abc.supabase.co",
+        "VITE_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_ok",
+        "VITE_SUPABASE_KEY": "sb_secret_mal",
+        "VITE_SUPABASE_SERVICE_ROLE_KEY": "x",
+        "VITE_ANON": f"eyJh.{rol}.firma",
+        "SUPABASE_SECRET_KEY": "sb_secret_bien_aqui",
+    }
+    assert sorted(checks.variables_vite_peligrosas(env)) == [
+        "VITE_ANON",
+        "VITE_SUPABASE_KEY",
+        "VITE_SUPABASE_SERVICE_ROLE_KEY",
+    ]

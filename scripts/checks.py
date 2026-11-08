@@ -56,3 +56,61 @@ def ocultar_url(url: str) -> str:
     cred, host = resto.rsplit("@", 1)
     usuario = cred.split(":", 1)[0]
     return f"{esquema}://{usuario}:***@{host}"
+
+
+def tipo_clave_supabase(clave: str) -> str:
+    """publishable | secret | legacy (JWT anon/service_role) | desconocida"""
+    if clave.startswith("sb_publishable_"):
+        return "publishable"
+    if clave.startswith("sb_secret_"):
+        return "secret"
+    if clave.startswith("eyJ") and clave.count(".") == 2:
+        return "legacy"
+    return "desconocida"
+
+
+def probar_supabase(url: str, clave: str, transport=None) -> tuple[bool, str]:
+    """Pide /auth/v1/settings: responde 200 con cualquier clave válida del proyecto."""
+    import httpx
+
+    url = url.rstrip("/")
+    if not url.startswith("https://") or ".supabase." not in url:
+        return False, "SUPABASE_URL debe ser https://<proyecto>.supabase.co"
+    try:
+        with httpx.Client(timeout=10, transport=transport) as client:
+            r = client.get(f"{url}/auth/v1/settings", headers={"apikey": clave})
+    except httpx.HTTPError as exc:
+        return False, f"sin conexión con Supabase ({exc.__class__.__name__})"
+    if r.status_code == 200:
+        return True, "clave aceptada por Supabase"
+    if r.status_code in (401, 403):
+        return False, "Supabase rechaza la clave (¿de otro proyecto o incompleta?)"
+    if r.status_code == 404:
+        return False, "proyecto no encontrado: revisa SUPABASE_URL"
+    return False, f"respuesta inesperada: HTTP {r.status_code}"
+
+
+PATRONES_SECRETOS = ("sb_secret_", "service_role", "SECRET", "PASSWORD", "PRIVATE")
+
+
+def variables_vite_peligrosas(entorno: dict[str, str]) -> list[str]:
+    """Variables VITE_* que parecen secretos (acabarían en el navegador)."""
+    malas = []
+    for k, v in entorno.items():
+        if not k.startswith("VITE_"):
+            continue
+        if any(p in k.upper() for p in ("SECRET", "SERVICE_ROLE", "PASSWORD", "PRIVATE")) or v.startswith("sb_secret_"):
+            malas.append(k)
+        elif tipo_clave_supabase(v) == "legacy" and '"service_role"' in _payload_jwt(v):
+            malas.append(k)
+    return malas
+
+
+def _payload_jwt(token: str) -> str:
+    import base64
+
+    try:
+        parte = token.split(".")[1]
+        return base64.urlsafe_b64decode(parte + "=" * (-len(parte) % 4)).decode("utf-8", "replace")
+    except Exception:  # noqa: BLE001
+        return ""
