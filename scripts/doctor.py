@@ -18,6 +18,7 @@ from checks import (  # noqa: E402
     probar_db,
     probar_gemini,
     probar_supabase,
+    rol_jwt,
     tipo_clave_supabase,
     variables_vite_peligrosas,
 )
@@ -65,7 +66,8 @@ def main() -> int:
 
     archivos = [ROOT / ".env.local", API / ".env.local", API / ".env", ROOT / ".env"]
     hay = [f for f in archivos if f.exists()]
-    check(bool(hay), "", "No hay .env.local: ejecuta  npm run setup  para crearlo", grave=False)
+    if not hay:
+        check(False, "", "No hay .env.local: ejecuta  npm run setup  para crearlo", grave=False)
     for i, env_file in enumerate(hay):
         nombres = [
             line.split("=", 1)[0].strip()
@@ -150,9 +152,15 @@ def revisar_supabase() -> None:
         print(f"{AVISO} Supabase: SUPABASE_URL y claves no definidas (opcional)")
         return
     check(bool(url), f"SUPABASE_URL: {url}", "Falta SUPABASE_URL (https://<proyecto>.supabase.co)")
-    for nombre, valor, esperado in (
-        ("publishable/anon", pub, ("publishable", "legacy")),
-        ("secret/service_role", sec, ("secret", "legacy")),
+    if pub and sec and pub == sec:
+        check(
+            False,
+            "",
+            "SUPABASE_ANON_KEY y SUPABASE_SERVICE_ROLE_KEY son la MISMA clave: pega la service_role (o la secret) en su variable",
+        )
+    for nombre, valor, esperado, rol in (
+        ("publishable/anon", pub, ("publishable", "legacy"), "anon"),
+        ("secret/service_role", sec, ("secret", "legacy"), "service_role"),
     ):
         if not valor:
             print(f"{AVISO} Supabase: clave {nombre} no definida")
@@ -162,6 +170,12 @@ def revisar_supabase() -> None:
             tipo in esperado,
             f"Clave {nombre}: formato correcto ({tipo}, …{valor[-4:]})",
             f"La clave {nombre} tiene formato «{tipo}»: ¿la pegaste en la variable equivocada?",
+        ):
+            continue
+        if tipo == "legacy" and not check(
+            rol_jwt(valor) == rol,
+            f"Clave {nombre}: rol «{rol}» correcto",
+            f"La clave {nombre} es de rol «{rol_jwt(valor)}», no «{rol}»: está en la variable equivocada",
         ):
             continue
         if url:
