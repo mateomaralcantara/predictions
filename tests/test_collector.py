@@ -50,7 +50,7 @@ def _csv(tmp_path: Path, filas: str) -> Path:
 
 
 def _args(csv: Path, *extra: str):
-    return collector.parser().parse_args(["--csv", str(csv), "--pausa", "0", *extra])
+    return collector.parser().parse_args(["--csv", str(csv), "--pausa", "0", "--fuente", "loteriasdominicanas", *extra])
 
 
 def test_agrega_dias_nuevos_y_escribe_csv(tmp_path):
@@ -90,3 +90,25 @@ def test_rellena_huecos_y_dry_run(tmp_path):
 )
 def test_fecha_bloque(texto, esperado):
     assert fuente._fecha_bloque(texto, DIA) == esperado
+
+
+def test_labanca_parse_valida_fecha():
+    from packages.sources import labanca
+
+    html = (
+        "<html><body><p>Gana Más 6 de noviembre de 2026</p>"
+        "<p>El número ganador de Gana Más del 6 de noviembre de 2026 fue 06-29-97. Fuente: x</p></body></html>"
+    )
+    assert labanca.parse(html, date(2026, 11, 6)) == (6, 29, 97)
+    assert labanca.parse(html, date(2026, 11, 5)) is None  # otra fecha: se rechaza
+    assert labanca.parse(html.replace("06-29-97", "06-29-197"), date(2026, 11, 6)) is None
+
+
+def test_labanca_no_pide_fechas_anteriores_al_inicio():
+    from packages.sources import labanca
+
+    class SinRed:
+        def get(self, *a, **k):  # pragma: no cover - no debe llamarse
+            raise AssertionError("no debía pedir nada")
+
+    assert labanca.dia(date(2025, 7, 1), SinRed()).sorteos == []

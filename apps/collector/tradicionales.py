@@ -28,6 +28,7 @@ sys.path.insert(0, str(ROOT))
 
 import requests  # noqa: E402
 
+from packages.sources import labanca  # noqa: E402
 from packages.sources import loteriasdominicanas as fuente  # noqa: E402
 
 log = logging.getLogger("collector.tradicionales")
@@ -98,16 +99,22 @@ def fechas_objetivo(
 def ejecutar(args: argparse.Namespace, session: requests.Session | None = None) -> dict:
     filas = leer_csv(args.csv)
     hasta = args.hasta or (date.today() - timedelta(days=1))
-    objetivos = fechas_objetivo(filas, args.desde, hasta, args.rellenar_huecos)[: args.max_dias]
+    objetivos = fechas_objetivo(filas, args.desde, hasta, args.rellenar_huecos)
+    if args.fuente == "labanca":
+        objetivos = [d for d in objetivos if d >= labanca.INICIO]
+    objetivos = objetivos[: args.max_dias]
     session = session or requests.Session()
     stats = {"dias": len(objetivos), "nuevos": 0, "dias_sin_datos": 0, "dias_obsoletos": 0, "bloques_descartados": 0}
 
     for i, d in enumerate(objetivos):
-        html = fuente.descargar(d, session, timeout=args.timeout)
-        if html is None:
-            stats["dias_sin_datos"] += 1
-            continue
-        dia = fuente.parse(html, d)
+        if args.fuente == "labanca":
+            dia = labanca.dia(d, session, timeout=args.timeout)
+        else:
+            html = fuente.descargar(d, session, timeout=args.timeout)
+            if html is None:
+                stats["dias_sin_datos"] += 1
+                continue
+            dia = fuente.parse(html, d)
         stats["bloques_descartados"] += dia.descartados_fecha
         if not dia.sorteos:
             stats["dias_sin_datos"] += 1
@@ -144,6 +151,12 @@ def parser() -> argparse.ArgumentParser:
     ap.add_argument("--pausa", type=float, default=0.5, help="Segundos entre peticiones")
     ap.add_argument("--timeout", type=float, default=15)
     ap.add_argument("--dry-run", action="store_true", help="No escribe el CSV")
+    ap.add_argument(
+        "--fuente",
+        choices=["labanca", "loteriasdominicanas"],
+        default="labanca",
+        help="labanca.do (desde 2026-02-12) o loteriasdominicanas.com (histórico completo; bloquea algunas redes)",
+    )
     return ap
 
 
