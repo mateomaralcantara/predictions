@@ -231,3 +231,15 @@ def test_monto_distinto_no_activa_plan(client, paypal_mock):
     assert client.post("/api/pagos/ordenes/ORDER999/captura", headers=h).status_code == 402
     assert client.get("/api/auth/yo", headers=h).json()["nivel"] == 0
     assert client.get("/api/auth/pagos", headers=h).json()[0]["estado"] == "REVISION"
+
+
+def test_cli_importar_avisa_destino_local(capsys, tmp_path, env):
+    from app import cli
+
+    env(DATABASE_URL="", SUPABASE_DB_URL="", APP_DATABASE_URL=f"sqlite:///{tmp_path / 'c.db'}")
+    csv = tmp_path / "r.csv"
+    csv.write_text("fecha,loteria,primer,segundo,tercero\n2025-01-01,X,1,2,3\n", encoding="utf-8")
+    assert cli.main(["importar-csv", str(csv)]) == 0
+    out = capsys.readouterr().out
+    assert "SQLite LOCAL" in out and "Importados 1" in out
+    assert cli._ocultar("postgresql://u:secreta@h:5432/db") == "postgresql://u:***@h:5432/db"

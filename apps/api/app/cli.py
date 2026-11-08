@@ -24,6 +24,14 @@ from .payments import PLANES
 from .repository import load_csv
 
 
+def _ocultar(url: str) -> str:
+    if "@" not in url or "://" not in url:
+        return url
+    esquema, resto = url.split("://", 1)
+    cred, host = resto.rsplit("@", 1)
+    return f"{esquema}://{cred.split(':', 1)[0]}:***@{host}"
+
+
 def importar_csv(ruta: Path, url: str) -> tuple[int, int]:
     """Inserta en la base los sorteos del CSV que no estén ya (por fecha+lotería)."""
     filas = load_csv(ruta)
@@ -103,6 +111,12 @@ def main(argv: list[str] | None = None) -> int:
         print("Migraciones aplicadas.")
     elif args.cmd == "importar-csv":
         destino = settings.database_url or url
+        print(f"Destino: {_ocultar(destino)}")
+        if destino.startswith("sqlite"):
+            print(
+                "AVISO: no hay DATABASE_URL ni SUPABASE_DB_URL; se importa al SQLite LOCAL.\n"
+                "       Para subirlo a Supabase añade SUPABASE_DB_URL en .env.local (npm run setup)."
+            )
         upgrade(destino)
         nuevos, omitidos = importar_csv(args.ruta, destino)
         print(f"Importados {nuevos} sorteos ({omitidos} ya existían o estaban repetidos).")
