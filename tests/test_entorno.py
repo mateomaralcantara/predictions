@@ -176,3 +176,15 @@ def test_detecta_secretos_en_variables_vite():
         "VITE_SUPABASE_KEY",
         "VITE_SUPABASE_SERVICE_ROLE_KEY",
     ]
+
+
+def test_rol_jwt():
+    import base64
+
+    def jwt(rol: str) -> str:
+        cuerpo = base64.urlsafe_b64encode(f'{{"role":"{rol}","iss":"supabase"}}'.encode()).decode().rstrip("=")
+        return f"eyJhbGciOiJIUzI1NiJ9.{cuerpo}.firma"
+
+    assert checks.rol_jwt(jwt("anon")) == "anon"
+    assert checks.rol_jwt(jwt("service_role")) == "service_role"
+    assert checks.rol_jwt("no-es-jwt") is None

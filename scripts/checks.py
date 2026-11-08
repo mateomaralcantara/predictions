@@ -114,3 +114,13 @@ def _payload_jwt(token: str) -> str:
         return base64.urlsafe_b64decode(parte + "=" * (-len(parte) % 4)).decode("utf-8", "replace")
     except Exception:  # noqa: BLE001
         return ""
+
+
+def rol_jwt(token: str) -> str | None:
+    """Rol declarado en una clave legacy de Supabase ("anon" o "service_role")."""
+    import json
+
+    try:
+        return json.loads(_payload_jwt(token)).get("role")
+    except (ValueError, AttributeError):
+        return None
