@@ -63,3 +63,11 @@ def recargar_datos() -> dict:
     repo = get_repository()
     repo.invalidate()
     return {"ok": True, "sorteos": len(repo.all()), "fuente": repo.source}
+
+
+@router.post("/actualizar", dependencies=[Depends(require_admin)])
+async def actualizar_ahora(settings: Annotated[Settings, Depends(settings_dep)]) -> dict:
+    """Fuerza una actualización de todos los sorteos (no espera al ciclo)."""
+    from .. import actualizador
+
+    return await asyncio.to_thread(actualizador.ejecutar_ciclo, settings)

@@ -92,6 +92,13 @@ export interface Health {
   ultimo_sorteo: string | null;
   openai: boolean;
   pagos: boolean;
+  actualizacion?: {
+    activa: boolean;
+    cada_min?: number;
+    en_curso?: boolean;
+    ultima?: string | null;
+    proxima?: string | null;
+  };
 }
 
 export interface Loteria {

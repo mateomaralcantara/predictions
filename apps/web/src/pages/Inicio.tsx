@@ -2,6 +2,7 @@ import { CalendarClock } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import Chat from "../components/Chat";
 import { LoteriaSelector } from "../components/LoteriaSelector";
+import { EstadoActualizacion } from "../components/EstadoActualizacion";
 import { LoteriasGrid } from "../components/LoteriasGrid";
 import { rutaLoteria } from "../lib/rutas";
 import { ResumenTarjetas } from "../components/ResumenTarjetas";
@@ -36,6 +37,7 @@ export default function Inicio() {
         <LoteriaSelector value={loteria} onChange={(v) => v && navigate(rutaLoteria(v))} />
       </PageHeader>
 
+      <EstadoActualizacion />
       <LoteriasGrid />
 
       {resumen.data && atraso > 7 && (

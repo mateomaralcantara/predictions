@@ -54,3 +54,6 @@ apps/web/dist/
 # Base de datos local de la app (SQLite)
 data/*.db
 data/*.db-journal
+
+# Copia viva de los datos que actualiza la API (no se versiona)
+data/vivo/

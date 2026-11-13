@@ -23,6 +23,7 @@ TEST_ENV = {
     # CI puede probar contra PostgreSQL real con TEST_APP_DATABASE_URL.
     "APP_DATABASE_URL": os.environ.get("TEST_APP_DATABASE_URL") or f"sqlite:///{_TMP / 'app.db'}",
     "AUTO_MIGRATE": "true",
+    "AUTO_ACTUALIZAR": "false",
     "TRUST_PROXY_HEADERS": "",
     "DATABASE_URL": "",
     "DB_HOST": "",

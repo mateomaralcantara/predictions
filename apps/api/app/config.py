@@ -94,6 +94,11 @@ class Settings:
     resultados_csv: Path
     loto_csv: Path
     superkino_csv: Path
+    lotopool_csv: Path
+    auto_actualizar: bool = False
+    actualizar_cada_min: int = 30
+    # juego -> CSV versionado en Git (origen de la copia viva en data/vivo/)
+    csv_base: dict[str, Path] = field(default_factory=dict)
     cors_origins: list[str] = field(default_factory=list)
 
     @property
@@ -120,6 +125,31 @@ class Settings:
     @property
     def paypal_enabled(self) -> bool:
         return bool(self.paypal_client_id and self.paypal_secret)
+
+
+VIVO_DIR = REPO_ROOT / "data" / "vivo"
+
+# juego -> (variable de entorno, CSV versionado)
+DATOS = {
+    "resultados": ("RESULTADOS_CSV", REPO_ROOT / "data" / "tradicionales" / "resultados_tradicionales.csv"),
+    "loto": ("LOTO_CSV", REPO_ROOT / "data" / "loto" / "loto_historico.csv"),
+    "superkino": ("SUPERKINO_CSV", REPO_ROOT / "data" / "superkino" / "superkino_historico.csv"),
+    "lotopool": ("LOTOPOOL_CSV", REPO_ROOT / "data" / "lotopool" / "lotopool_historico.csv"),
+}
+
+
+def _rutas_datos(auto_actualizar: bool) -> dict:
+    """Con auto-actualización la API lee y escribe copias en data/vivo/ (ignoradas
+    por Git), para no ensuciar los CSV versionados ni bloquear un ``git pull``."""
+    rutas: dict = {"csv_base": {}}
+    for juego, (var, base) in DATOS.items():
+        explicita = _env(var)
+        rutas["csv_base"][juego] = _path_from_env(var, base)
+        if explicita or not auto_actualizar:
+            rutas[f"{juego}_csv"] = _path_from_env(var, base)
+        else:
+            rutas[f"{juego}_csv"] = VIVO_DIR / base.relative_to(REPO_ROOT / "data")
+    return rutas
 
 
 _override: Settings | None = None
@@ -177,6 +207,8 @@ def _build_settings() -> Settings:
         db_file.parent.mkdir(parents=True, exist_ok=True)
         app_db = f"sqlite:///{db_file}"
 
+    auto_actualizar = _bool("AUTO_ACTUALIZAR", True)
+
     return Settings(
         environment=environment,
         secret_key=secret_key,
@@ -193,17 +225,8 @@ def _build_settings() -> Settings:
         paypal_base_url=_env("PAYPAL_BASE_URL", "https://api-m.sandbox.paypal.com").rstrip("/"),
         frontend_url=frontend_url,
         admin_token=_env("ADMIN_TOKEN"),
-        resultados_csv=_path_from_env(
-            "RESULTADOS_CSV",
-            REPO_ROOT / "data" / "tradicionales" / "resultados_tradicionales.csv",
-        ),
-        loto_csv=_path_from_env(
-            "LOTO_CSV",
-            REPO_ROOT / "data" / "loto" / "loto_historico.csv",
-        ),
-        superkino_csv=_path_from_env(
-            "SUPERKINO_CSV",
-            REPO_ROOT / "data" / "superkino" / "superkino_historico.csv",
-        ),
+        **_rutas_datos(auto_actualizar),
+        auto_actualizar=auto_actualizar,
+        actualizar_cada_min=max(5, int(_env("ACTUALIZAR_CADA_MIN", "30") or 30)),
         cors_origins=list(dict.fromkeys(origins)),
     )

@@ -5,6 +5,7 @@ uvicorn app.main:app --reload            (desde apps/api)
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -46,7 +47,28 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
             upgrade(usar_sqlite_local().app_database_url)
         log.info("Base de datos de la app al día.")
-    yield
+
+    tarea = None
+    settings = get_settings()  # puede haber cambiado (SQLite local de respaldo)
+    if settings.auto_actualizar:
+        from . import actualizador
+
+        actualizador.preparar(settings)
+        tarea = asyncio.create_task(actualizador.bucle(settings))
+        log.info("Actualización automática activa: cada %d min.", settings.actualizar_cada_min)
+    try:
+        yield
+    finally:
+        if tarea:
+            tarea.cancel()
+
+
+def _estado_actualizacion(settings) -> dict:
+    if not settings.auto_actualizar:
+        return {"activa": False}
+    from .actualizador import estado
+
+    return {"activa": True, "cada_min": settings.actualizar_cada_min, **estado}
 
 
 def create_app() -> FastAPI:
@@ -97,6 +119,7 @@ def create_app() -> FastAPI:
             "openai": settings.openai_enabled,
             "pagos": settings.paypal_enabled,
             "entorno": settings.environment,
+            "actualizacion": _estado_actualizacion(settings),
         }
 
     for r in (

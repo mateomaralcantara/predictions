@@ -112,3 +112,26 @@ def test_labanca_no_pide_fechas_anteriores_al_inicio():
             raise AssertionError("no debía pedir nada")
 
     assert labanca.dia(date(2025, 7, 1), SinRed()).sorteos == []
+
+
+def test_completar_pide_solo_loterias_que_faltan(tmp_path, monkeypatch):
+    from packages.sources import labanca
+    from packages.sources.loteriasdominicanas import ResultadoDia, Sorteo
+
+    csv = _csv(tmp_path, "2026-11-10,Gana Más,1,2,3\n")
+    pedidas = {}
+
+    def falso_dia(d, session, timeout=15, omitir=None):
+        pedidas[d] = set(omitir or ())
+        return ResultadoDia(d, [Sorteo(d, "Quiniela Loteka", 4, 5, 6)])
+
+    monkeypatch.setattr(labanca, "dia", falso_dia)
+    args = collector.parser().parse_args(
+        ["--csv", str(csv), "--pausa", "0", "--completar", "--desde", "2026-11-10", "--hasta", "2026-11-11"]
+    )
+    stats = collector.ejecutar(args)
+    assert pedidas[date(2026, 11, 10)] == {"Gana Más"}  # ya estaba: no se vuelve a pedir
+    assert pedidas[date(2026, 11, 11)] == set()
+    assert stats["nuevos"] == 2
+    filas = collector.leer_csv(csv)
+    assert filas[("2026-11-10", "Gana Más")] == (1, 2, 3) and ("2026-11-11", "Quiniela Loteka") in filas

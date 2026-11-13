@@ -69,9 +69,13 @@ def _descargar(session: requests.Session, slug: str, d: date, timeout: float, in
     return None
 
 
-def dia(d: date, session: requests.Session, timeout: float = 15, hilos: int = 6) -> ResultadoDia:
+def dia(
+    d: date, session: requests.Session, timeout: float = 15, hilos: int = 6, omitir: set[str] | None = None
+) -> ResultadoDia:
+    """Resultados de un día. ``omitir``: loterías que ya se tienen (no se piden)."""
     if d < INICIO:
         return ResultadoDia(d, [])
+    pendientes = {k: v for k, v in LOTERIAS.items() if k not in (omitir or set())}
 
     def una(item: tuple[str, str]) -> Sorteo | None:
         nombre, slug = item
@@ -80,5 +84,5 @@ def dia(d: date, session: requests.Session, timeout: float = 15, hilos: int = 6)
         return Sorteo(d, nombre, *nums) if nums else None
 
     with ThreadPoolExecutor(max_workers=hilos) as ex:
-        sorteos = [s for s in ex.map(una, LOTERIAS.items()) if s]
+        sorteos = [s for s in ex.map(una, pendientes.items()) if s]
     return ResultadoDia(d, sorteos)

@@ -101,6 +101,8 @@ npm run cli -- --help    # migrar · importar-csv · crear-admin · dar-plan (de
 
 ## Datos
 
+**Actualización automática:** mientras la API está encendida, cada 30 minutos (`ACTUALIZAR_CADA_MIN`) descarga de labanca.do los sorteos nuevos de Loto, SuperKino, Loto Pool y las 14 loterías tradicionales. Completa días a medias y recupera los días perdidos si la API estuvo apagada. Guarda los datos en `data/vivo/` (Git lo ignora, así nunca bloquea un `git pull`) y, si hay PostgreSQL/Supabase, también en la base de datos. El estado se ve en `/api/health` → `actualizacion`; para forzar una pasada: `POST /api/admin/actualizar` con la cabecera `X-Admin-Token`. Se desactiva con `AUTO_ACTUALIZAR=false`.
+
 El workflow **Actualizar datos** corre cada día a las 23:17 (hora de RD) y también se puede lanzar a mano desde *Actions*. En cada ejecución:
 
 - recoge los resultados tradicionales nuevos y rellena hasta 400 días de huecos (el hueco de agosto 2021 – diciembre 2024 se completa en unas 4 ejecuciones);

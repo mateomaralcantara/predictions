@@ -99,7 +99,13 @@ def fechas_objetivo(
 def ejecutar(args: argparse.Namespace, session: requests.Session | None = None) -> dict:
     filas = leer_csv(args.csv)
     hasta = args.hasta or (date.today() - timedelta(days=1))
-    objetivos = fechas_objetivo(filas, args.desde, hasta, args.rellenar_huecos)
+    if args.completar:
+        # Revisa TODAS las fechas del rango y pide solo las loterías que faltan
+        # (p. ej. ya salieron las de la mañana y faltan las de la noche).
+        inicio = args.desde or hasta
+        objetivos = [inicio + timedelta(days=i) for i in range((hasta - inicio).days + 1)]
+    else:
+        objetivos = fechas_objetivo(filas, args.desde, hasta, args.rellenar_huecos)
     if args.fuente == "labanca":
         objetivos = [d for d in objetivos if d >= labanca.INICIO]
     objetivos = objetivos[: args.max_dias]
@@ -108,7 +114,10 @@ def ejecutar(args: argparse.Namespace, session: requests.Session | None = None) 
 
     for i, d in enumerate(objetivos):
         if args.fuente == "labanca":
-            dia = labanca.dia(d, session, timeout=args.timeout)
+            ya = {lot for (f, lot) in filas if f == d.isoformat()}
+            if args.completar and ya >= set(labanca.LOTERIAS):
+                continue
+            dia = labanca.dia(d, session, timeout=args.timeout, omitir=ya if args.completar else set())
         else:
             html = fuente.descargar(d, session, timeout=args.timeout)
             if html is None:
@@ -119,7 +128,7 @@ def ejecutar(args: argparse.Namespace, session: requests.Session | None = None) 
         if not dia.sorteos:
             stats["dias_sin_datos"] += 1
             continue
-        if dia_obsoleto(dia, ultimos_por_loteria(filas, d)):
+        if not args.completar and dia_obsoleto(dia, ultimos_por_loteria(filas, d)):
             stats["dias_obsoletos"] += 1
             log.warning("%s: la página repite resultados anteriores; se ignora.", d)
             continue
@@ -151,6 +160,11 @@ def parser() -> argparse.ArgumentParser:
     ap.add_argument("--pausa", type=float, default=0.5, help="Segundos entre peticiones")
     ap.add_argument("--timeout", type=float, default=15)
     ap.add_argument("--dry-run", action="store_true", help="No escribe el CSV")
+    ap.add_argument(
+        "--completar",
+        action="store_true",
+        help="Revisa cada fecha del rango y descarga solo las loterías que falten (días a medias)",
+    )
     ap.add_argument(
         "--fuente",
         choices=["labanca", "loteriasdominicanas"],
